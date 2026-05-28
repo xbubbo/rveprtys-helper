@@ -13,9 +13,10 @@ const {
 
 const fs = require('fs');
 const fetch = require('node-fetch');
+const mongoose = require('mongoose');
+const Stock = require('./models/Stock');
 
 const jackpotLeaderboard = new Map();
-const mongoose = require('mongoose');
 
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("MongoDB connected"))
@@ -30,7 +31,6 @@ const client = new Client({
 
 client.commands = new Collection();
 
-
 const commandFiles = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
 for (const file of commandFiles) {
     const command = require(`./commands/${file}`);
@@ -39,19 +39,29 @@ for (const file of commandFiles) {
 
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
+
+    setInterval(async () => {
+        const stocks = await Stock.find();
+        for (const stock of stocks) {
+            const change = 1 + (Math.random() * 0.06 - 0.03);
+            const newPrice = Math.max(0.01, parseFloat((stock.price * change).toFixed(2)));
+            stock.history.push(newPrice);
+            if (stock.history.length > 30) stock.history.shift();
+            stock.price = newPrice;
+            await stock.save();
+        }
+        console.log('Stock prices updated.');
+    }, 30 * 60 * 1000);
 });
 
 client.on('interactionCreate', async interaction => {
-
 
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
         if (command) await command.execute(interaction);
     }
 
-
     if (interaction.isButton()) {
-
 
         if (interaction.customId === 'open_order_modal') {
 
@@ -83,7 +93,6 @@ client.on('interactionCreate', async interaction => {
             return interaction.showModal(modal);
         }
 
-
         if (interaction.customId.startsWith('respond_')) {
 
             const userId = interaction.customId.split('_')[1];
@@ -105,22 +114,17 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-
     if (interaction.isModalSubmit()) {
-
 
         if (interaction.customId === 'order_modal') {
 
             const ip = interaction.fields.getTextInputValue('website_ip');
             const name = interaction.fields.getTextInputValue('website_name');
             const filters = interaction.fields.getTextInputValue('filters');
-
             const userId = interaction.user.id;
-
 
             await interaction.user.send("Your order has been received. You will get your links soon.");
 
-       
             const embed = {
                 title: `New Order`,
                 fields: [
@@ -132,35 +136,34 @@ client.on('interactionCreate', async interaction => {
                 color: 0x2b2d31
             };
 
-const components = [
-    {
-        type: 1,
-        components: [
-            {
-                type: 2,
-                label: "Send Links",
-                style: 1,
-                custom_id: `respond_${userId}`
-            }
-        ]
-    }
-];
+            const components = [
+                {
+                    type: 1,
+                    components: [
+                        {
+                            type: 2,
+                            label: "Send Links",
+                            style: 1,
+                            custom_id: `respond_${userId}`
+                        }
+                    ]
+                }
+            ];
 
-await fetch(process.env.WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-        embeds: [embed],
-        components: components
-    })
-});
+            await fetch(process.env.WEBHOOK_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    embeds: [embed],
+                    components: components
+                })
+            });
 
             return interaction.reply({
                 content: "Order submitted! Check your DMs.",
                 ephemeral: true
             });
         }
-
 
         if (interaction.customId.startsWith('response_modal_')) {
 
@@ -169,7 +172,6 @@ await fetch(process.env.WEBHOOK_URL, {
 
             try {
                 const user = await client.users.fetch(userId);
-
                 await user.send(`📦 Your Order is Ready!\n\n${links}`);
 
                 return interaction.reply({

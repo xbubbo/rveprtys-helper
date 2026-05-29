@@ -101,7 +101,7 @@ client.on('messageCreate', async message => {
 
     // ?work
     if (cmd === 'work') {
-        const COOLDOWN = 5 * 60 * 1000;
+        const COOLDOWN = 2 * 60 * 1000;
         const user = await getUser(message.author.id, message.guild.id);
 
         if (user.lastWork && now - user.lastWork < COOLDOWN) {

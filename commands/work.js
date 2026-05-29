@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getUser } = require('../utils/economy');
 
-const COOLDOWN = 5 * 60 * 1000;
+const COOLDOWN = 2 * 60 * 1000;
 
 module.exports = {
     data: new SlashCommandBuilder()

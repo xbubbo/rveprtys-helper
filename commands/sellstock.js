@@ -3,12 +3,6 @@ const Stock = require('../models/Stock');
 const Portfolio = require('../models/Portfolio');
 const User = require('../models/User');
 
-function applyPriceImpact(price, shares, direction) {
-    const impact = 1 + (direction * 0.002 * shares);
-    const noise = 1 + (Math.random() * 0.02 - 0.01);
-    return Math.max(0.01, parseFloat((price * impact * noise).toFixed(2)));
-}
-
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('sellstock')
@@ -45,10 +39,6 @@ module.exports = {
         user.balance = parseFloat((user.balance + totalEarned).toFixed(2));
         await user.save();
 
-        const newPrice = applyPriceImpact(stock.price, shares, -1);
-        stock.history.push(newPrice);
-        if (stock.history.length > 30) stock.history.shift();
-        stock.price = newPrice;
         stock.totalShares = Math.max(0, stock.totalShares - shares);
         await stock.save();
 

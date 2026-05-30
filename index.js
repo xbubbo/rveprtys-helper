@@ -604,9 +604,8 @@ client.on('messageCreate', async message => {
         }
         await portfolio.save();
 
-        // Price impact: buying pushes price up slightly
-        const impact = 1 + (shares / Math.max(stock.totalShares + shares, 1000)) * 0.02;
-        stock.price = Math.min(parseFloat((stock.price * impact).toFixed(2)), 999999);
+        const buyImpact = 1 + Math.min(shares / Math.max(stock.totalShares + shares, 10000), 0.1) * 0.5;
+        stock.price = Math.min(parseFloat((stock.price * buyImpact).toFixed(2)), 999999);
         stock.totalShares += shares;
         await stock.save();
 
@@ -651,10 +650,8 @@ client.on('messageCreate', async message => {
         user.balance = parseFloat((user.balance + totalEarned).toFixed(2));
         await user.save();
 
-        // Price impact: selling pushes price down — capped to prevent crashes
-        const remainingShares = Math.max(stock.totalShares - shares, 1);
-        const impactPct = Math.min(shares / Math.max(stock.totalShares, 1), 0.15); // max 15% drop per sell
-        const newPrice = Math.max(parseFloat((stock.price * (1 - impactPct * 0.3)).toFixed(2)), 0.01);
+        const sellImpact = Math.min(shares / Math.max(stock.totalShares, 10000), 0.1) * 0.5;
+        const newPrice = Math.max(parseFloat((stock.price * (1 - sellImpact)).toFixed(2)), 0.01);
         stock.price = newPrice;
         stock.totalShares = Math.max(0, stock.totalShares - shares);
         await stock.save();

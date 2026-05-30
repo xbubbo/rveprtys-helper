@@ -36,12 +36,6 @@ const robCooldowns = new Map();
 
 const symbols = ['🍒', '🍋', '🍉', '⭐', '💎', '🍀'];
 
-function applyPriceImpact(price, shares, direction) {
-    const impact = 1 + (direction * 0.002 * shares);
-    const noise = 1 + (Math.random() * 0.02 - 0.01);
-    return Math.max(0.01, parseFloat((price * impact * noise).toFixed(2)));
-}
-
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB connected'))
     .catch(err => { console.error(err); process.exit(1); });
@@ -155,16 +149,15 @@ client.on('guildCreate', async guild => {
     const now = Date.now();
     const guildId = message.guild.id;
 
-    // ── Config helpers ─────────────────────────────────────────
+
     const config = await Config.findOne({ guildId }) || {};
     const modules = config.modules || {};
     const bannedUsers = config.bannedUsers || [];
     const allowedChannels = config.allowedChannels || [];
 
-    // ── Channel restriction ─────────────────────────────────────
+
     if (allowedChannels.length > 0 && !allowedChannels.includes(message.channel.id)) return;
 
-    // ── Ban check ───────────────────────────────────────────────
     const isBanned = bannedUsers.some(b => b.userId === message.author.id);
     if (isBanned) {
         const banEntry = bannedUsers.find(b => b.userId === message.author.id);
@@ -176,7 +169,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ── Module check ────────────────────────────────────────────
     const MODULE_MAP = {
         work: ['work'],
         rob: ['rob'],
@@ -202,7 +194,6 @@ client.on('guildCreate', async guild => {
         }
     }
 
-    // ── Anti-cheat helper ───────────────────────────────────────
     async function anticheatCheck(userId) {
         const MAX_LEGIT = 500000;
         const u = await getUser(userId, guildId);
@@ -220,12 +211,11 @@ client.on('guildCreate', async guild => {
                         .setColor(0xff0000)]
                 });
             } catch {}
-            return true; // was flagged
+            return true; 
         }
         return false;
     }
 
-    // ?balance / ?bal
     if (cmd === 'balance' || cmd === 'bal') {
         const user = await getUser(message.author.id, guildId);
         return message.reply({
@@ -239,7 +229,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?work
     if (cmd === 'work') {
         const COOLDOWN = 2 * 60 * 1000;
         const user = await getUser(message.author.id, guildId);
@@ -323,7 +312,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?deposit / ?dep <amount|all>
+
     if (cmd === 'deposit' || cmd === 'dep') {
         const user = await getUser(message.author.id, guildId);
         const amount = args[0] === 'all' ? user.balance : parseInt(args[0]);
@@ -340,7 +329,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?withdraw / ?with <amount|all>
     if (cmd === 'withdraw' || cmd === 'with') {
         const user = await getUser(message.author.id, guildId);
         const amount = args[0] === 'all' ? user.bank : parseInt(args[0]);
@@ -357,7 +345,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?givemoney / ?give <@user> <amount>
+
     if (cmd === 'givemoney' || cmd === 'give') {
         const targetId = message.mentions.users.first()?.id;
         const amount = parseInt(args[1]);
@@ -377,7 +365,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?coinflip / ?cf <bet> <heads|tails>
+  
     if (cmd === 'coinflip' || cmd === 'cf') {
         const COOLDOWN = 5 * 60 * 1000;
         const bet = parseInt(args[0]);
@@ -407,7 +395,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?dice <bet>
+
     if (cmd === 'dice') {
         const COOLDOWN = 5 * 60 * 1000;
         const bet = parseInt(args[0]);
@@ -438,7 +426,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?slots <bet>
+
     if (cmd === 'slots') {
         const COOLDOWN = 5 * 60 * 1000;
         const bet = parseInt(args[0]);
@@ -467,7 +455,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?rob <@user>
+
     if (cmd === 'rob') {
         const COOLDOWN = 10 * 60 * 1000;
         const targetId = message.mentions.users.first()?.id;
@@ -517,7 +505,7 @@ client.on('guildCreate', async guild => {
         }
     }
 
-    // ?duel <@user>
+
     if (cmd === 'duel') {
         const targetUser = message.mentions.users.first();
         if (!targetUser) return message.reply('❌ Usage: `?duel @user`');
@@ -533,7 +521,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?leaderboard / ?lb
+
     if (cmd === 'leaderboard' || cmd === 'lb') {
         const users = await User.find({ guildId: guildId }).sort({ balance: -1 }).limit(10);
         const description = users.map((u, i) => `**${i + 1}.** <@${u.userId}> - $${u.balance}`).join('\n');
@@ -545,7 +533,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?bankleaderboard / ?blb
+
     if (cmd === 'bankleaderboard' || cmd === 'blb') {
         const users = await User.find({ guildId: guildId }).sort({ bank: -1 }).limit(10);
         if (!users.length) return message.reply('No data yet.');
@@ -558,7 +546,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?stocks
+
     if (cmd === 'stocks') {
         const stocks = await Stock.find({ guildId }).sort({ ticker: 1 });
         if (!stocks.length) return message.reply('❌ No stocks set up yet. An admin can run `?setupmarket` to initialize the market.');
@@ -579,7 +567,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?buystock <TICKER> <shares>
     if (cmd === 'buystock') {
         const ticker = args[0]?.toUpperCase();
         const shares = parseInt(args[1]);
@@ -603,10 +590,6 @@ client.on('guildCreate', async guild => {
             portfolio.holdings.push({ ticker, shares, avgBuyPrice: stock.price });
         }
         await portfolio.save();
-        const newPrice = applyPriceImpact(stock.price, shares, 1);
-        stock.history.push(newPrice);
-        if (stock.history.length > 30) stock.history.shift();
-        stock.price = newPrice;
         stock.totalShares += shares;
         await stock.save();
         return message.reply({
@@ -616,8 +599,8 @@ client.on('guildCreate', async guild => {
                 .addFields(
                     { name: 'Stock', value: `${stock.name} (\`${ticker}\`)`, inline: true },
                     { name: 'Shares', value: `${shares}`, inline: true },
+                    { name: 'Price Per Share', value: `$${stock.price.toFixed(2)}`, inline: true },
                     { name: 'Total Cost', value: `$${totalCost.toFixed(2)}`, inline: true },
-                    { name: 'New Price', value: `$${newPrice.toFixed(2)}`, inline: true },
                     { name: 'Cash Remaining', value: `$${user.balance.toFixed(2)}`, inline: true }
                 )
                 .setFooter({ text: 'NRG Stock Market' })
@@ -625,7 +608,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?sellstock <TICKER> <shares>
+
     if (cmd === 'sellstock') {
         const ticker = args[0]?.toUpperCase();
         const shares = parseInt(args[1]);
@@ -643,10 +626,6 @@ client.on('guildCreate', async guild => {
         const user = await User.findOne({ userId: message.author.id, guildId: guildId });
         user.balance = parseFloat((user.balance + totalEarned).toFixed(2));
         await user.save();
-        const newPrice = applyPriceImpact(stock.price, shares, -1);
-        stock.history.push(newPrice);
-        if (stock.history.length > 30) stock.history.shift();
-        stock.price = newPrice;
         stock.totalShares = Math.max(0, stock.totalShares - shares);
         await stock.save();
         return message.reply({
@@ -656,6 +635,7 @@ client.on('guildCreate', async guild => {
                 .addFields(
                     { name: 'Stock', value: `${stock.name} (\`${ticker}\`)`, inline: true },
                     { name: 'Shares Sold', value: `${shares}`, inline: true },
+                    { name: 'Price Per Share', value: `$${stock.price.toFixed(2)}`, inline: true },
                     { name: 'Total Earned', value: `$${totalEarned.toFixed(2)}`, inline: true },
                     { name: 'Profit/Loss', value: `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`, inline: true },
                     { name: 'New Cash Balance', value: `$${user.balance.toFixed(2)}`, inline: true }
@@ -665,7 +645,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?portfolio / ?port
     if (cmd === 'portfolio' || cmd === 'port') {
         const portfolio = await Portfolio.findOne({ userId: message.author.id, guildId: guildId });
         if (!portfolio || !portfolio.holdings.length) return message.reply('📭 You have no stocks. Use `?buystock` to get started.');
@@ -696,7 +675,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?stockhistory / ?sh <TICKER>
+
     if (cmd === 'stockhistory' || cmd === 'sh') {
         const ticker = args[0]?.toUpperCase();
         if (!ticker) return message.reply('❌ Usage: `?stockhistory <TICKER>`');
@@ -725,7 +704,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?buy @user
+
     if (cmd === 'buy') {
         const target = message.mentions.users.first();
         if (!target) return message.reply('❌ Usage: `?buy @user`');
@@ -816,7 +795,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?slave - check your slave status
+
     if (cmd === 'slave') {
         const slave = await Slave.findOne({ userId: message.author.id, guildId: guildId });
         if (!slave?.ownerId) return message.reply('✅ You are a free person.');
@@ -834,7 +813,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?slavepanel - owner panel
+
     if (cmd === 'slavepanel') {
         const slaves = await Slave.find({ ownerId: message.author.id, guildId: guildId });
         if (!slaves.length) return message.reply("❌ You don't own anyone.");
@@ -874,7 +853,7 @@ client.on('guildCreate', async guild => {
         }
     }
 
-    // ?daily
+
     if (cmd === 'daily') {
         const user = await getUser(message.author.id, guildId);
         const COOLDOWN = 24 * 60 * 60 * 1000;
@@ -920,7 +899,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?gleaderboard / ?glb — global top 10 per server
     if (cmd === 'gleaderboard' || cmd === 'glb') {
         const allUsers = await User.find().sort({ balance: -1 });
         const seen = new Map();
@@ -939,7 +917,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?gbankleaderboard / ?gblb — global bank top 10 per server
     if (cmd === 'gbankleaderboard' || cmd === 'gblb') {
         const allUsers = await User.find().sort({ bank: -1 });
         const seen = new Map();
@@ -958,7 +935,6 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // ?setupmarket — admin seeds the stock market for this server
     if (cmd === 'setupmarket') {
         if (!isAdmin(message.member)) return message.reply('❌ You need Administrator permission.');
         const companies = [
@@ -994,7 +970,7 @@ client.on('guildCreate', async guild => {
         });
     }
 
-    // OWNER ONLY COMMANDS (Admin permission required)
+
     if (cmd === 'ogive') {
         if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
         const targetId = message.mentions.users.first()?.id;
@@ -1139,7 +1115,7 @@ client.on('guildCreate', async guild => {
         return message.reply('Cooldowns cleared.');
     }
 
-    // ?help
+
     if (cmd === 'help') {
         return message.reply({
             embeds: [new EmbedBuilder()

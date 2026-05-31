@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { getUser } = require('../utils/economy');
+const { getUser } = require('../../utils/economy');
 
 const MAX_BALANCE = 999_999_999_999_999;
 const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

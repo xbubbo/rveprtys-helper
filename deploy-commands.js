@@ -4,11 +4,11 @@ const { REST, Routes } = require('discord.js');
 const fs = require('fs');
 
 const commands = [];
-const files = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
+const files = fs.readdirSync('./src/commands').filter(f => f.endsWith('.js'));
 
 for (const file of files) {
     try {
-        const command = require(`./commands/${file}`);
+        const command = require(`./src/commands/${file}`);
 
         if (!command?.data?.toJSON) {
             console.log(`❌ INVALID EXPORT: ${file}`);

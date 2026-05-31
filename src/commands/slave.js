@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { getUser } = require('../utils/economy');
-const Slave = require('../models/Slave');
+const { getUser } = require('../../utils/economy');
+const Slave = require('../../models/Slave');
 
 const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

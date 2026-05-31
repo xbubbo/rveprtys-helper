@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { getUser, anticheat } = require('../utils/economy');
-const cooldowns = require('../utils/cooldowns');
+const { getUser, anticheat } = require('../../utils/economy');
+const cooldowns = require('../../utils/cooldowns');
 
 const COOLDOWN = 10 * 60 * 1000;
 const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

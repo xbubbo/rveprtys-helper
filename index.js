@@ -10,26 +10,32 @@ const {
     ActionRowBuilder,
     EmbedBuilder,
     ButtonBuilder,
-    ButtonStyle,
-    REST,
-    Routes
+    ButtonStyle
 } = require('discord.js');
 
 const fs = require('fs');
 const fetch = require('node-fetch');
 const mongoose = require('mongoose');
 const Stock = require('./models/Stock');
+const Portfolio = require('./models/Portfolio');
+const User = require('./models/User');
 const Slave = require('./models/Slave');
-const { getUser } = require('./src/utils/economy');
-const { seedMarket, COMPANIES } = require('./src/utils/market');
+const { getUser } = require('./utils/economy');
 const Config = require('./models/Config');
 
-const PREFIX   = '?';
+const jackpotLeaderboard = new Map();
+const activeAuctions = new Map();
+const PREFIX = '?';
 const OWNER_ID = '1453078748080504996';
-const isAdmin  = (member) => member.permissions.has('Administrator') || member.id === OWNER_ID;
-const MAX_BALANCE = 999_999_999_999_999;
+const isAdmin = (member) => member.permissions.has('Administrator') || member.id === OWNER_ID;
 
-const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const workCooldowns = new Map();
+const coinflipCooldowns = new Map();
+const diceCooldowns = new Map();
+const slotsCooldowns = new Map();
+const robCooldowns = new Map();
+
+const symbols = ['🍒', '🍋', '🍉', '⭐', '💎', '🍀'];
 
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB connected'))
@@ -45,44 +51,19 @@ const client = new Client({
 
 client.commands = new Collection();
 
-function loadCommands() {
-    client.commands.clear();
-    for (const file of fs.readdirSync('./src/commands').filter(f => f.endsWith('.js'))) {
-        try {
-            delete require.cache[require.resolve(`./src/commands/${file}`)];
-            const command = require(`./src/commands/${file}`);
-            client.commands.set(command.data.name, command);
-        } catch (e) {
-            console.error(`Failed to load ${file}:`, e.message);
-        }
-    }
+const commandFiles = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
+for (const file of commandFiles) {
+    const command = require(`./commands/${file}`);
+    client.commands.set(command.data.name, command);
 }
-
-async function deployCommands() {
-    const commands = [];
-    for (const file of fs.readdirSync('./src/commands').filter(f => f.endsWith('.js'))) {
-        try {
-            delete require.cache[require.resolve(`./src/commands/${file}`)];
-            const cmd = require(`./src/commands/${file}`);
-            if (cmd?.data?.toJSON) commands.push(cmd.data.toJSON());
-        } catch (e) {
-            console.error(`Failed to read ${file}:`, e.message);
-        }
-    }
-    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
-    console.log(`Deployed ${commands.length} slash commands.`);
-}
-
-loadCommands();
-
 
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
+
     setInterval(async () => {
         const stocks = await Stock.find();
         for (const stock of stocks) {
-            const change   = 1 + (Math.random() * 0.06 - 0.03);
+            const change = 1 + (Math.random() * 0.06 - 0.03);
             const newPrice = Math.max(0.01, parseFloat((stock.price * change).toFixed(2)));
             stock.history.push(newPrice);
             if (stock.history.length > 30) stock.history.shift();
@@ -95,8 +76,33 @@ client.once('ready', () => {
 
 client.on('guildCreate', async guild => {
     console.log(`Joined new guild: ${guild.name} (${guild.id})`);
+
+    const companies = [
+        { ticker: 'VLR',  name: 'Velera Inc',           price: 142.50 },
+        { ticker: 'FRGS', name: "Frogiee's Arcade",      price: 34.20  },
+        { ticker: 'DOGE', name: 'Doge UB',               price: 0.85   },
+        { ticker: 'CHRI', name: 'Cherri Inc',             price: 58.00  },
+        { ticker: 'TGLC', name: 'TGLSC Corp',             price: 210.00 },
+        { ticker: 'GNMT', name: 'Gn Math',               price: 76.40  },
+        { ticker: 'CNOS', name: 'Cine OS',               price: 99.99  },
+        { ticker: 'OVCL', name: 'Overcloaked Corp',       price: 185.30 },
+        { ticker: 'TRFL', name: 'Truffled Inc',           price: 47.60  },
+        { ticker: 'LNR',  name: 'LUNAR Research Inc',     price: 320.00 },
+        { ticker: 'VOID', name: 'Void Network Corp',      price: 5.55   },
+        { ticker: 'HDR',  name: 'Hydra Network Corp',     price: 88.88  },
+        { ticker: 'NRGX', name: 'NRG Exchange',           price: 500.00 },
+        { ticker: 'PLSM', name: 'Plasma Dynamics Inc',    price: 63.75  },
+        { ticker: 'ZRTH', name: 'Zeroth Systems',         price: 112.00 },
+    ];
+
     try {
-        await seedMarket(guild.id);
+        for (const c of companies) {
+            await Stock.findOneAndUpdate(
+                { guildId: guild.id, ticker: c.ticker },
+                { guildId: guild.id, ...c, history: [c.price], totalShares: 0 },
+                { upsert: true, new: true }
+            );
+        }
         console.log(`Seeded stocks for ${guild.name}`);
     } catch (e) {
         console.error(`Failed to seed stocks for ${guild.name}:`, e);
@@ -114,297 +120,1167 @@ client.on('guildCreate', async guild => {
             `> \`?daily\` — claim your daily reward\n\n` +
             `**Admin commands:**\n` +
             `> \`?setupmarket\` — re-seed the stock market anytime\n` +
-            `> Dashboard: https://economicbomb.nrglearning.xyz`
+            `> Dashboard: https://economicbomb.xyz/dashboard`
         )
         .setColor(0xFFD700)
         .setFooter({ text: 'Economic Bomb • Use ?help for all commands' });
 
     try {
-        const ch = guild.systemChannel ?? guild.channels.cache
-            .filter(c => c.type === 0 && c.permissionsFor(guild.members.me)?.has('SendMessages'))
-            .sort((a, b) => a.position - b.position).first();
-        if (ch) await ch.send({ embeds: [welcomeEmbed] });
-    } catch {}
+        const systemChannel = guild.systemChannel;
+        if (systemChannel?.permissionsFor(guild.members.me)?.has('SendMessages')) {
+            await systemChannel.send({ embeds: [welcomeEmbed] });
+        } else {
+            const firstTextChannel = guild.channels.cache
+                .filter(c => c.type === 0 && c.permissionsFor(guild.members.me)?.has('SendMessages'))
+                .sort((a, b) => a.position - b.position)
+                .first();
+            if (firstTextChannel) await firstTextChannel.send({ embeds: [welcomeEmbed] });
+        }
+    } catch (e) {
+        console.error(`Could not send welcome message to ${guild.name}:`, e);
+    }
 });
 
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (!message.content.startsWith(PREFIX)) return;
 
-    const args  = message.content.slice(PREFIX.length).trim().split(/\s+/);
-    const cmd   = args.shift().toLowerCase();
-    const now   = Date.now();
+    const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
+    const cmd = args.shift().toLowerCase();
+    const now = Date.now();
     const guildId = message.guild.id;
 
-    // ── Config helpers ──────────────────────────────────────────────
-    const config        = await Config.findOne({ guildId }) || {};
-    const modules       = config.modules       || {};
-    const bannedUsers   = config.bannedUsers   || [];
+    const config = await Config.findOne({ guildId }) || {};
+    const modules = config.modules || {};
+    const bannedUsers = config.bannedUsers || [];
     const allowedChannels = config.allowedChannels || [];
 
     if (allowedChannels.length > 0 && !allowedChannels.includes(message.channel.id)) return;
 
-    const banEntry = bannedUsers.find(b => b.userId === message.author.id);
-    if (banEntry) {
-        return message.reply({ embeds: [new EmbedBuilder()
-            .setTitle('You Are Banned')
-            .setDescription(`You have been banned from using this bot.\n**Reason:** ${banEntry.reason || 'No reason given'}`)
-            .setColor(0xff0000)] });
+    const isBanned = bannedUsers.some(b => b.userId === message.author.id);
+    if (isBanned) {
+        const banEntry = bannedUsers.find(b => b.userId === message.author.id);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🔨 You Are Banned')
+                .setDescription(`You have been banned from using this bot.\n**Reason:** ${banEntry?.reason || 'No reason given'}`)
+                .setColor(0xff0000)]
+        });
     }
 
     const MODULE_MAP = {
-        work:        ['work'],
-        rob:         ['rob'],
-        coinflip:    ['coinflip', 'cf'],
-        dice:        ['dice'],
-        slots:       ['slots'],
-        duel:        ['duel'],
-        stocks:      ['stocks', 'stock', 'stocklist', 'buystock', 'sellstock', 'portfolio', 'port', 'stockhistory', 'sh'],
-        slave:       ['buy', 'outbid', 'slave', 'slavepanel', 'slavelist'],
-        givemoney:   ['givemoney', 'give'],
-        deposit:     ['deposit', 'dep', 'bank'],
-        withdraw:    ['withdraw', 'with'],
+        work: ['work'],
+        rob: ['rob'],
+        coinflip: ['coinflip', 'cf'],
+        dice: ['dice'],
+        slots: ['slots'],
+        duel: ['duel'],
+        stocks: ['stocks', 'buystock', 'sellstock', 'portfolio', 'port', 'stockhistory', 'sh'],
+        slave: ['buy', 'outbid', 'sellslave', 'slave', 'slavepanel', 'slavelist'],
+        givemoney: ['givemoney', 'give'],
+        deposit: ['deposit', 'dep'],
+        withdraw: ['withdraw', 'with'],
         leaderboard: ['leaderboard', 'lb', 'bankleaderboard', 'blb']
     };
     for (const [mod, cmds] of Object.entries(MODULE_MAP)) {
         if (cmds.includes(cmd) && modules[mod] === false) {
-            return message.reply({ embeds: [new EmbedBuilder()
-                .setTitle('Feature Disabled')
-                .setDescription(`The \`?${cmd}\` command is currently disabled in this server.`)
-                .setColor(0x71717a)] });
+            return message.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🧩 Feature Disabled')
+                    .setDescription(`The \`?${cmd}\` command is currently disabled in this server.`)
+                    .setColor(0x71717a)]
+            });
         }
     }
 
-    const adapt = (opts = {}) => ({
-        user:   message.author,
-        guild:  message.guild,
-        member: message.member,
-        channel: message.channel,
-        client,
-        options: {
-            getUser:        n => opts.getUser?.(n)        ?? null,
-            getInteger:     n => opts.getInteger?.(n)     ?? null,
-            getString:      n => opts.getString?.(n)      ?? null,
-            getNumber:      n => opts.getNumber?.(n)      ?? null,
-            getSubcommand:  () => opts.getSubcommand?.()  ?? null,
-        },
-        reply:    d => message.reply(d),
-        followUp: d => message.channel.send(d),
-    });
-
-    if (cmd === 'bank') {
-        const sub = args.shift()?.toLowerCase();
-        if (sub === 'deposit')  return client.commands.get('bank').execute(adapt({ getSubcommand: () => 'deposit',  getString: n => n === 'amount' ? args[0] : null }));
-        if (sub === 'withdraw') return client.commands.get('bank').execute(adapt({ getSubcommand: () => 'withdraw', getString: n => n === 'amount' ? args[0] : null }));
-        return client.commands.get('bank').execute(adapt({ getSubcommand: () => 'balance' }));
+    async function anticheatCheck(userId) {
+        const MAX_LEGIT = 500000;
+        const u = await getUser(userId, guildId);
+        const total = u.balance + u.bank;
+        if (total > MAX_LEGIT) {
+            u.balance = 0;
+            u.bank = 0;
+            await u.save();
+            try {
+                const discordUser = await client.users.fetch(userId);
+                await discordUser.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('🛡️ Anti-Cheat Triggered')
+                        .setDescription('Your balance was reset to $0 for exceeding the maximum possible earned amount.')
+                        .setColor(0xff0000)]
+                });
+            } catch {}
+            return true;
+        }
+        return false;
     }
 
-    if (cmd === 'balance' || cmd === 'bal')
-        return client.commands.get('bank').execute(adapt({
-            getSubcommand: () => 'balance',
-            getUser: n => n === 'user' ? message.mentions.users.first() : null,
-        }));
+    if (cmd === 'balance' || cmd === 'bal') {
+        const user = await getUser(message.author.id, guildId);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle(`💰 ${message.author.username}'s Balance`)
+                .addFields(
+                    { name: '💵 Wallet', value: `$${user.balance}`, inline: true },
+                    { name: '🏦 Bank', value: `$${user.bank}`, inline: true }
+                )
+                .setColor(0x2b2d31)]
+        });
+    }
 
-    if (cmd === 'deposit' || cmd === 'dep')
-        return client.commands.get('bank').execute(adapt({ getSubcommand: () => 'deposit',  getString: n => n === 'amount' ? args[0] : null }));
+    if (cmd === 'work') {
+        const COOLDOWN = 2 * 60 * 1000;
+        const user = await getUser(message.author.id, guildId);
 
-    if (cmd === 'withdraw' || cmd === 'with')
-        return client.commands.get('bank').execute(adapt({ getSubcommand: () => 'withdraw', getString: n => n === 'amount' ? args[0] : null }));
+        if (user.lastWork && now - user.lastWork < COOLDOWN) {
+            const timeLeft = ((COOLDOWN - (now - user.lastWork)) / 1000).toFixed(1);
+            return message.reply(`⏳ You need to wait **${timeLeft}s** before working again.`);
+        }
 
-    if (cmd === 'work')
-        return client.commands.get('work').execute(adapt());
+        const amount = Math.floor(Math.random() * 76) + 25;
+        user.lastWork = now;
 
-    if (cmd === 'givemoney' || cmd === 'give')
-        return client.commands.get('give').execute(adapt({
-            getUser:    n => n === 'user'   ? message.mentions.users.first() : null,
-            getInteger: n => n === 'amount' ? parseInt(args[1])              : null,
-        }));
+        const slave = await Slave.findOne({ userId: message.author.id, guildId: guildId });
+
+        if (slave?.ownerId) {
+            slave.debt = parseFloat((slave.debt - amount).toFixed(2));
+            slave.totalEarned = parseFloat((slave.totalEarned + amount).toFixed(2));
+
+            const owner = await getUser(slave.ownerId, guildId);
+            owner.balance = parseFloat((owner.balance + amount).toFixed(2));
+            await owner.save();
+
+            if (slave.debt <= 0) {
+                const freedOwnerId = slave.ownerId;
+                slave.ownerId = null;
+                slave.debt = 0;
+                await slave.save();
+                await user.save();
+
+                try {
+                    const ownerUser = await client.users.fetch(freedOwnerId);
+                    await ownerUser.send({
+                        embeds: [new EmbedBuilder()
+                            .setTitle('💸 Slave Debt Paid Off')
+                            .setDescription(`<@${message.author.id}> has paid off their debt and is now free.`)
+                            .setColor(0x00FF99)]
+                    });
+                } catch {}
+
+                return message.reply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('🕊️ You Are Free!')
+                        .setDescription(`You worked and earned **$${amount}** — your debt is fully paid off! You are now free.`)
+                        .setColor(0x00FF99)]
+                });
+            }
+
+            await slave.save();
+            await user.save();
+
+            try {
+                const ownerUser = await client.users.fetch(slave.ownerId);
+                await ownerUser.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('💰 Your Slave Worked!')
+                        .setDescription(`<@${message.author.id}> worked and earned **$${amount}** for you.\n💸 Their remaining debt: **$${slave.debt.toFixed(2)}**`)
+                        .setColor(0x2b2d31)]
+                });
+            } catch {}
+
+            return message.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('💼 Work Complete')
+                    .setDescription(
+                        `You earned **$${amount}** — but it went to your owner <@${slave.ownerId}>.\n\n` +
+                        `💸 **Debt Remaining:** $${slave.debt.toFixed(2)}`
+                    )
+                    .setColor(0xFF4500)
+                    .setFooter({ text: 'Keep working to pay off your debt!' })]
+            });
+        }
+
+        user.balance += amount;
+        await user.save();
+        await anticheatCheck(message.author.id);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('💼 Work Complete')
+                .setDescription(`You earned **$${amount}**`)
+                .setColor(0x00ff00)]
+        });
+    }
+
+    if (cmd === 'deposit' || cmd === 'dep') {
+        const user = await getUser(message.author.id, guildId);
+        const amount = args[0] === 'all' ? user.balance : parseInt(args[0]);
+        if (!amount || amount <= 0) return message.reply('❌ Usage: `?deposit <amount|all>`');
+        if (user.balance < amount) return message.reply("❌ You don't have enough money in your wallet.");
+        user.balance -= amount;
+        user.bank += amount;
+        await user.save();
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🏦 Deposit Successful')
+                .setDescription(`Deposited **$${amount}** into your bank.`)
+                .setColor(0x00ff00)]
+        });
+    }
+
+    if (cmd === 'withdraw' || cmd === 'with') {
+        const user = await getUser(message.author.id, guildId);
+        const amount = args[0] === 'all' ? user.bank : parseInt(args[0]);
+        if (!amount || amount <= 0) return message.reply('❌ Usage: `?withdraw <amount|all>`');
+        if (user.bank < amount) return message.reply("❌ You don't have enough money in your bank.");
+        user.bank -= amount;
+        user.balance += amount;
+        await user.save();
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🏦 Withdrawal Successful')
+                .setDescription(`Withdrew **$${amount}** from your bank.`)
+                .setColor(0x00ff00)]
+        });
+    }
+
+    if (cmd === 'givemoney' || cmd === 'give') {
+        const targetId = message.mentions.users.first()?.id;
+        const amount = parseInt(args[1]);
+        if (!targetId || !amount || amount <= 0) return message.reply('❌ Usage: `?give @user <amount>`');
+        const user = await getUser(message.author.id, guildId);
+        const receiver = await getUser(targetId, guildId);
+        if (user.balance < amount) return message.reply('❌ Not enough money.');
+        user.balance -= amount;
+        receiver.balance += amount;
+        await user.save();
+        await receiver.save();
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🤝 Transfer Complete')
+                .setDescription(`You gave **$${amount}** to <@${targetId}>`)
+                .setColor(0x00ff00)]
+        });
+    }
 
     if (cmd === 'coinflip' || cmd === 'cf') {
-        const choice = ['h', 'heads'].includes(args[1]?.toLowerCase()) ? 'heads'
-                     : ['t', 'tails'].includes(args[1]?.toLowerCase()) ? 'tails'
-                     : args[1] ?? null;
-        return client.commands.get('gamble').execute(adapt({
-            getString:  n => n === 'game' ? 'coinflip' : n === 'choice' ? choice : null,
-            getInteger: n => n === 'bet'  ? parseFloat(args[0]) : null,
-        }));
+        const COOLDOWN = 5 * 60 * 1000;
+        const bet = parseInt(args[0]);
+        const choice = args[1]?.toLowerCase();
+        if (!bet || bet <= 0 || !['heads', 'tails'].includes(choice)) return message.reply('❌ Usage: `?coinflip <bet> <heads|tails>`');
+        if (coinflipCooldowns.has(message.author.id)) {
+            const exp = coinflipCooldowns.get(message.author.id) + COOLDOWN;
+            if (now < exp) return message.reply('⏳ Coinflip cooldown active.');
+        }
+        coinflipCooldowns.set(message.author.id, now);
+        const user = await getUser(message.author.id, guildId);
+        if (user.balance < bet) return message.reply('❌ Not enough balance.');
+        user.balance -= bet;
+        const result = Math.random() < 0.5 ? 'heads' : 'tails';
+        let winnings = 0;
+        let text = `Coin: **${result}**\n`;
+        if (choice === result) { winnings = bet * 2; text += `You won $${winnings}`; }
+        else { text += `You lost $${bet}`; }
+        user.balance += winnings;
+        await user.save();
+        await anticheatCheck(message.author.id);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🪙 Coinflip')
+                .setDescription(text)
+                .setColor(winnings ? 0x00ff00 : 0xff0000)]
+        });
     }
 
-    if (cmd === 'dice')
-        return client.commands.get('gamble').execute(adapt({
-            getString:  n => n === 'game' ? 'dice' : null,
-            getInteger: n => n === 'bet'  ? parseFloat(args[0]) : null,
-        }));
-
-    if (cmd === 'slots')
-        return client.commands.get('gamble').execute(adapt({
-            getString:  n => n === 'game' ? 'slots' : null,
-            getInteger: n => n === 'bet'  ? parseFloat(args[0]) : null,
-        }));
-
-    if (cmd === 'roulette')
-        return client.commands.get('gamble').execute(adapt({
-            getString:  n => n === 'game' ? 'roulette' : n === 'choice' ? args[1] : null,
-            getInteger: n => n === 'bet'  ? parseFloat(args[0]) : null,
-        }));
-
-    if (cmd === 'blackjack' || cmd === 'bj')
-        return client.commands.get('gamble').execute(adapt({
-            getString:  n => n === 'game' ? 'blackjack' : null,
-            getInteger: n => n === 'bet'  ? parseFloat(args[0]) : null,
-        }));
-
-    if (cmd === 'highlow' || cmd === 'hl')
-        return client.commands.get('gamble').execute(adapt({
-            getString:  n => n === 'game' ? 'highlow' : null,
-            getInteger: n => n === 'bet'  ? parseFloat(args[0]) : null,
-        }));
-
-    if (cmd === 'rob')
-        return client.commands.get('rob').execute(adapt({
-            getUser: n => n === 'target' ? message.mentions.users.first() : null,
-        }));
-
-    if (cmd === 'duel')
-        return client.commands.get('duel').execute(adapt({
-            getUser:   n => n === 'opponent' ? message.mentions.users.first() : null,
-            getString: n => n === 'bet'      ? args[1]                        : null,
-        }));
-
-    if (cmd === 'leaderboard' || cmd === 'lb' || cmd === 'bankleaderboard' || cmd === 'blb') {
-        const loc = (cmd === 'bankleaderboard' || cmd === 'blb') ? 'bank'
-            : (['bank', 'wallet'].includes(args[0]?.toLowerCase()) ? args[0].toLowerCase() : 'both');
-        return client.commands.get('leaderboard').execute(adapt({
-            getString: n => n === 'location' ? loc : null,
-        }));
+    if (cmd === 'dice') {
+        const COOLDOWN = 5 * 60 * 1000;
+        const bet = parseInt(args[0]);
+        if (!bet || bet <= 0) return message.reply('❌ Usage: `?dice <bet>`');
+        if (diceCooldowns.has(message.author.id)) {
+            const exp = diceCooldowns.get(message.author.id) + COOLDOWN;
+            if (now < exp) return message.reply('⏳ Dice cooldown active.');
+        }
+        diceCooldowns.set(message.author.id, now);
+        const user = await getUser(message.author.id, guildId);
+        if (user.balance < bet) return message.reply('❌ Not enough balance.');
+        user.balance -= bet;
+        const userRoll = Math.floor(Math.random() * 6) + 1;
+        const botRoll = Math.floor(Math.random() * 6) + 1;
+        let winnings = 0;
+        let text = `You: **${userRoll}** | Bot: **${botRoll}**\n`;
+        if (userRoll > botRoll) { winnings = bet * 2; text += `You won $${winnings}`; }
+        else if (userRoll === botRoll) { winnings = bet; text += `Tie - refunded`; }
+        else { text += `You lost $${bet}`; }
+        user.balance += winnings;
+        await user.save();
+        await anticheatCheck(message.author.id);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🎲 Dice')
+                .setDescription(text)
+                .setColor(winnings > bet ? 0x00ff00 : winnings === bet ? 0xffff00 : 0xff0000)]
+        });
     }
 
-    if (cmd === 'owner') {
-        const sub  = args.shift()?.toLowerCase();
-        const user = () => message.mentions.users.first();
-        const num  = i => parseFloat(args[i]);
-        const str  = i => args[i] ?? null;
-        if (sub === 'give')           return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'give',          getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
-        if (sub === 'setbalance')     return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbalance',    getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
-        if (sub === 'setbank')        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbank',       getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
-        if (sub === 'stats')          return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stats' }));
-        if (sub === 'userinfo')       return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'userinfo',      getUser: n => n === 'user' ? user() : null }));
-        if (sub === 'jackpot')        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'jackpot',       getNumber: n => n === 'amount' ? num(0) : null }));
-        if (sub === 'reseteconomy')   return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'reseteconomy' }));
-        if (sub === 'clearcooldowns') return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'clearcooldowns' }));
-        if (sub === 'stockfix')       return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stockfix' }));
-        if (sub === 'removestock')    return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'removestock',   getUser: n => n === 'user' ? user() : null, getString: n => n === 'ticker' ? str(0)?.toUpperCase() : null }));
-        if (sub === 'setupmarket')    return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setupmarket' }));
-        if (sub === 'bounty')         return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'bounty',        getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
+    if (cmd === 'slots') {
+        const COOLDOWN = 5 * 60 * 1000;
+        const bet = parseInt(args[0]);
+        if (!bet || bet <= 0) return message.reply('❌ Usage: `?slots <bet>`');
+        if (slotsCooldowns.has(message.author.id)) {
+            const exp = slotsCooldowns.get(message.author.id) + COOLDOWN;
+            if (now < exp) return message.reply('⏳ Slots cooldown active. Try again later.');
+        }
+        slotsCooldowns.set(message.author.id, now);
+        const user = await getUser(message.author.id, guildId);
+        if (user.balance < bet) return message.reply('❌ Invalid bet.');
+        user.balance -= bet;
+        const spin = [symbols[Math.floor(Math.random() * symbols.length)], symbols[Math.floor(Math.random() * symbols.length)], symbols[Math.floor(Math.random() * symbols.length)]];
+        let winnings = 0;
+        let text = 'You lost.';
+        if (spin[0] === spin[1] && spin[1] === spin[2]) { winnings = bet * 5; text = `JACKPOT! You won $${winnings}`; }
+        else if (spin[0] === spin[1] || spin[1] === spin[2] || spin[0] === spin[2]) { winnings = bet * 2; text = `You won $${winnings}`; }
+        user.balance += winnings;
+        await user.save();
+        await anticheatCheck(message.author.id);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🎰 Slots')
+                .setDescription(`${spin.join(' | ')}\n\n${text}`)
+                .setColor(winnings ? 0x00ff00 : 0xff0000)]
+        });
     }
 
-    if (cmd === 'ogive')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'give',        getUser: n => n === 'user' ? message.mentions.users.first() : null, getNumber: n => n === 'amount' ? parseFloat(args[1]) : null }));
-    if (cmd === 'osetbalance' || cmd === 'osetbal')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbalance',  getUser: n => n === 'user' ? message.mentions.users.first() : null, getNumber: n => n === 'amount' ? parseFloat(args[1]) : null }));
-    if (cmd === 'osetbank')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbank',     getUser: n => n === 'user' ? message.mentions.users.first() : null, getNumber: n => n === 'amount' ? parseFloat(args[1]) : null }));
-    if (cmd === 'oeconomystats' || cmd === 'ostats')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stats' }));
-    if (cmd === 'ouserinfo')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'userinfo',    getUser: n => n === 'user' ? message.mentions.users.first() : null }));
-    if (cmd === 'ojackpotdrop')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'jackpot',     getNumber: n => n === 'amount' ? parseFloat(args[0]) : null }));
-    if (cmd === 'oresetleaderboard' || cmd === 'oreset')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'reseteconomy' }));
-    if (cmd === 'clearcooldowns')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'clearcooldowns' }));
-
-    if (cmd === 'stock') {
-        const sub = args.shift()?.toLowerCase();
-        if (sub === 'buy')
-            return client.commands.get('stock').execute(adapt({
-                getSubcommand: () => 'buy',
-                getString: n => n === 'ticker' ? args[0] : n === 'shares' ? args[1] : null,
-            }));
-        if (sub === 'sell')
-            return client.commands.get('stock').execute(adapt({
-                getSubcommand: () => 'sell',
-                getString: n => n === 'ticker' ? args[0] : n === 'shares' ? args[1] : null,
-            }));
-        if (sub === 'portfolio')
-            return client.commands.get('stock').execute(adapt({
-                getSubcommand: () => 'portfolio',
-            }));
-        if (sub === 'history')
-            return client.commands.get('stock').execute(adapt({
-                getSubcommand: () => 'history',
-                getString: n => n === 'ticker' ? args[0] : null,
-            }));
-        return client.commands.get('stock').execute(adapt({
-            getSubcommand: () => 'list',
-        }));
+    if (cmd === 'rob') {
+        const COOLDOWN = 10 * 60 * 1000;
+        const targetId = message.mentions.users.first()?.id;
+        if (!targetId) return message.reply('❌ Usage: `?rob @user`');
+        if (targetId === message.author.id) return message.reply("❌ You can't rob yourself.");
+        if (robCooldowns.has(message.author.id)) {
+            const exp = robCooldowns.get(message.author.id) + COOLDOWN;
+            if (now < exp) return message.reply('⏳ Rob cooldown active.');
+        }
+        robCooldowns.set(message.author.id, now);
+        const user = await getUser(message.author.id, guildId);
+        const victim = await getUser(targetId, guildId);
+        if (victim.balance < 50) return message.reply('❌ Target is too poor to rob.');
+        const victimTotal = victim.balance + victim.bank;
+        if (victimTotal > user.balance * 5) return message.reply('❌ This target is too powerful to rob.');
+        let successChance = 0.6;
+        if (victimTotal > 1000) successChance = 0.5;
+        if (victimTotal > 5000) successChance = 0.4;
+        if (victimTotal > 10000) successChance = 0.3;
+        if (victimTotal > 25000) successChance = 0.2;
+        if (victimTotal > 50000) successChance = 0.1;
+        const success = Math.random() < successChance;
+        if (success) {
+            const amount = Math.floor(Math.min(victim.balance * (0.15 + Math.random() * 0.15), 4000));
+            victim.balance -= amount;
+            user.balance += amount;
+            await user.save(); await victim.save();
+            await anticheatCheck(message.author.id);
+            return message.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('💰 Rob Success')
+                    .setDescription(`You stole **$${amount}** from <@${targetId}>`)
+                    .setFooter({ text: `Success chance: ${Math.round(successChance * 100)}%` })
+                    .setColor(0x00ff00)]
+            });
+        } else {
+            const penalty = Math.floor(Math.max(user.balance * 0.15, 200));
+            user.balance -= penalty;
+            await user.save();
+            return message.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🚨 Rob Failed')
+                    .setDescription(`You got caught and lost **$${penalty}**`)
+                    .setFooter({ text: `Success chance: ${Math.round(successChance * 100)}%` })
+                    .setColor(0xff0000)]
+            });
+        }
     }
 
-    if (cmd === 'stocks' || cmd === 'stocklist')
-        return client.commands.get('stock').execute(adapt({
-            getSubcommand: () => 'list',
-        }));
+    if (cmd === 'duel') {
+        const targetUser = message.mentions.users.first();
+        if (!targetUser) return message.reply('❌ Usage: `?duel @user`');
+        if (targetUser.bot) return message.reply("❌ You can't duel bots.");
+        if (targetUser.id === message.author.id) return message.reply("❌ You can't duel yourself.");
+        const participants = [message.author, targetUser];
+        const winner = participants[Math.floor(Math.random() * 2)];
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('⚔️ Duel Result')
+                .setDescription(`🥊 ${message.author.username} vs ${targetUser.username}\n\n🏆 Winner: **${winner.username}**`)
+                .setColor(0x2b2d31)]
+        });
+    }
 
-    if (cmd === 'buystock')
-        return client.commands.get('stock').execute(adapt({
-            getSubcommand: () => 'buy',
-            getString: n => n === 'ticker' ? args[0] : n === 'shares' ? args[1] : null,
-        }));
+    if (cmd === 'leaderboard' || cmd === 'lb') {
+        const users = await User.find({ guildId: guildId }).sort({ balance: -1 }).limit(10);
+        const description = users.map((u, i) => `**${i + 1}.** <@${u.userId}> - $${u.balance}`).join('\n');
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🏆 Leaderboard')
+                .setDescription(description || 'No data yet.')
+                .setColor(0xFFD700)]
+        });
+    }
 
-    if (cmd === 'sellstock')
-        return client.commands.get('stock').execute(adapt({
-            getSubcommand: () => 'sell',
-            getString: n => n === 'ticker' ? args[0] : n === 'shares' ? args[1] : null,
-        }));
+    if (cmd === 'bankleaderboard' || cmd === 'blb') {
+        const users = await User.find({ guildId: guildId }).sort({ bank: -1 }).limit(10);
+        if (!users.length) return message.reply('No data yet.');
+        const description = users.map((u, i) => `**${i + 1}.** <@${u.userId}> — $${u.bank}`).join('\n');
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🏦 Bank Leaderboard')
+                .setDescription(description)
+                .setColor(0x2b2d31)]
+        });
+    }
 
-    if (cmd === 'portfolio' || cmd === 'port')
-        return client.commands.get('stock').execute(adapt({
-            getSubcommand: () => 'portfolio',
-        }));
+    if (cmd === 'stocks') {
+        const stocks = await Stock.find({ guildId }).sort({ ticker: 1 });
+        if (!stocks.length) return message.reply('❌ No stocks set up yet. An admin can run `?setupmarket` to initialize the market.');
+        const rows = stocks.map(s => {
+            const prev = s.history.length >= 2 ? s.history[s.history.length - 2] : s.price;
+            const change = s.price - prev;
+            const pct = ((change / prev) * 100).toFixed(2);
+            const arrow = change > 0 ? '🟢' : change < 0 ? '🔴' : '⚪';
+            return `${arrow} \`${s.ticker.padEnd(4)}\` **${s.name}** — $${s.price.toFixed(2)} (${change >= 0 ? '+' : ''}${pct}%)`;
+        }).join('\n');
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('📈 Stock Market')
+                .setDescription(rows)
+                .setColor(0x00FF99)
+                .setFooter({ text: 'Prices update every 30 minutes' })
+                .setTimestamp()]
+        });
+    }
 
-    if (cmd === 'stockhistory' || cmd === 'sh')
-        return client.commands.get('stock').execute(adapt({
-            getSubcommand: () => 'history',
-            getString: n => n === 'ticker' ? args[0] : null,
-        }));
+    if (cmd === 'buystock') {
+        const ticker = args[0]?.toUpperCase();
+        const shares = parseInt(args[1]);
+        if (!ticker || !shares || shares <= 0) return message.reply('❌ Usage: `?buystock <TICKER> <shares>`');
+        const stock = await Stock.findOne({ guildId, ticker });
+        if (!stock) return message.reply(`❌ Ticker \`${ticker}\` not found.`);
+        const user = await User.findOne({ userId: message.author.id, guildId: guildId });
+        if (!user) return message.reply('❌ You have no economy account.');
+        const totalCost = parseFloat((stock.price * shares).toFixed(2));
+        if (user.balance < totalCost) return message.reply(`❌ You need **$${totalCost.toFixed(2)}** but only have **$${user.balance.toFixed(2)}**.`);
+        user.balance = parseFloat((user.balance - totalCost).toFixed(2));
+        await user.save();
+        let portfolio = await Portfolio.findOne({ userId: message.author.id, guildId: guildId });
+        if (!portfolio) portfolio = new Portfolio({ userId: message.author.id, guildId: guildId, holdings: [] });
+        const existing = portfolio.holdings.find(h => h.ticker === ticker);
+        if (existing) {
+            const totalShares = existing.shares + shares;
+            existing.avgBuyPrice = parseFloat(((existing.avgBuyPrice * existing.shares + stock.price * shares) / totalShares).toFixed(2));
+            existing.shares = totalShares;
+        } else {
+            portfolio.holdings.push({ ticker, shares, avgBuyPrice: stock.price });
+        }
+        await portfolio.save();
+        stock.totalShares += shares;
+        await stock.save();
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('✅ Stock Purchased')
+                .setColor(0x00FF99)
+                .addFields(
+                    { name: 'Stock', value: `${stock.name} (\`${ticker}\`)`, inline: true },
+                    { name: 'Shares', value: `${shares}`, inline: true },
+                    { name: 'Price Per Share', value: `$${stock.price.toFixed(2)}`, inline: true },
+                    { name: 'Total Cost', value: `$${totalCost.toFixed(2)}`, inline: true },
+                    { name: 'Cash Remaining', value: `$${user.balance.toFixed(2)}`, inline: true }
+                )
+                .setFooter({ text: 'NRG Stock Market' })
+                .setTimestamp()]
+        });
+    }
 
-    if (cmd === 'buy')
-        return client.commands.get('slave').execute(adapt({
-            getSubcommand: () => 'buy',
-            getUser: n => n === 'user' ? message.mentions.users.first() : null,
-        }));
+    if (cmd === 'sellstock') {
+        const ticker = args[0]?.toUpperCase();
+        const shares = parseInt(args[1]);
+        if (!ticker || !shares || shares <= 0) return message.reply('❌ Usage: `?sellstock <TICKER> <shares>`');
+        const stock = await Stock.findOne({ guildId, ticker });
+        if (!stock) return message.reply(`❌ Ticker \`${ticker}\` not found.`);
+        const portfolio = await Portfolio.findOne({ userId: message.author.id, guildId: guildId });
+        const holding = portfolio?.holdings.find(h => h.ticker === ticker);
+        if (!holding || holding.shares < shares) return message.reply(`❌ You don't have enough shares of \`${ticker}\`.`);
+        const totalEarned = parseFloat((stock.price * shares).toFixed(2));
+        const profit = parseFloat((totalEarned - holding.avgBuyPrice * shares).toFixed(2));
+        holding.shares -= shares;
+        if (holding.shares === 0) portfolio.holdings = portfolio.holdings.filter(h => h.ticker !== ticker);
+        await portfolio.save();
+        const user = await User.findOne({ userId: message.author.id, guildId: guildId });
+        user.balance = parseFloat((user.balance + totalEarned).toFixed(2));
+        await user.save();
+        stock.totalShares = Math.max(0, stock.totalShares - shares);
+        await stock.save();
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('💸 Stock Sold')
+                .setColor(profit >= 0 ? 0x00FF99 : 0xFF4500)
+                .addFields(
+                    { name: 'Stock', value: `${stock.name} (\`${ticker}\`)`, inline: true },
+                    { name: 'Shares Sold', value: `${shares}`, inline: true },
+                    { name: 'Price Per Share', value: `$${stock.price.toFixed(2)}`, inline: true },
+                    { name: 'Total Earned', value: `$${totalEarned.toFixed(2)}`, inline: true },
+                    { name: 'Profit/Loss', value: `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`, inline: true },
+                    { name: 'New Cash Balance', value: `$${user.balance.toFixed(2)}`, inline: true }
+                )
+                .setFooter({ text: 'NRG Stock Market' })
+                .setTimestamp()]
+        });
+    }
 
-    if (cmd === 'slave')
-        return client.commands.get('slave').execute(adapt({
-            getSubcommand: () => 'status',
-        }));
+    if (cmd === 'portfolio' || cmd === 'port') {
+        const portfolio = await Portfolio.findOne({ userId: message.author.id, guildId: guildId });
+        if (!portfolio || !portfolio.holdings.length) return message.reply('📭 You have no stocks. Use `?buystock` to get started.');
+        let totalValue = 0, totalCost = 0;
+        const rows = [];
+        for (const h of portfolio.holdings) {
+            const stock = await Stock.findOne({ guildId, ticker: h.ticker });
+            if (!stock) continue;
+            const currentValue = stock.price * h.shares;
+            const costBasis = h.avgBuyPrice * h.shares;
+            const profit = currentValue - costBasis;
+            totalValue += currentValue;
+            totalCost += costBasis;
+            rows.push(`${profit >= 0 ? '🟢' : '🔴'} \`${h.ticker}\` x${h.shares} — $${currentValue.toFixed(2)} (${profit >= 0 ? '+' : ''}$${profit.toFixed(2)})`);
+        }
+        const totalProfit = totalValue - totalCost;
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle(`📊 ${message.author.username}'s Portfolio`)
+                .setDescription(rows.join('\n'))
+                .setColor(totalProfit >= 0 ? 0x00FF99 : 0xFF4500)
+                .addFields(
+                    { name: 'Total Value', value: `$${totalValue.toFixed(2)}`, inline: true },
+                    { name: 'Total Profit/Loss', value: `${totalProfit >= 0 ? '+' : ''}$${totalProfit.toFixed(2)}`, inline: true }
+                )
+                .setFooter({ text: 'NRG Stock Market' })
+                .setTimestamp()]
+        });
+    }
 
-    if (cmd === 'slavepanel')
-        return client.commands.get('slave').execute(adapt({
-            getSubcommand: () => 'panel',
-        }));
+    if (cmd === 'stockhistory' || cmd === 'sh') {
+        const ticker = args[0]?.toUpperCase();
+        if (!ticker) return message.reply('❌ Usage: `?stockhistory <TICKER>`');
+        const stock = await Stock.findOne({ guildId, ticker });
+        if (!stock) return message.reply(`❌ Ticker \`${ticker}\` not found.`);
+        const history = stock.history.slice(-10);
+        const chart = history.map((p, i) => {
+            const prev = history[i - 1] ?? p;
+            const arrow = p > prev ? '📈' : p < prev ? '📉' : '➡️';
+            return `${arrow} $${p.toFixed(2)}`;
+        }).join('\n');
+        const first = history[0], last = history[history.length - 1];
+        const overallChange = last - first;
+        const overallPct = ((overallChange / first) * 100).toFixed(2);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle(`📋 ${stock.name} (\`${ticker}\`) — Price History`)
+                .setDescription(chart || 'No history yet.')
+                .setColor(overallChange >= 0 ? 0x00FF99 : 0xFF4500)
+                .addFields(
+                    { name: 'Current Price', value: `$${stock.price.toFixed(2)}`, inline: true },
+                    { name: 'Overall Change', value: `${overallChange >= 0 ? '+' : ''}${overallPct}%`, inline: true }
+                )
+                .setFooter({ text: 'Last 10 price points • NRG Stock Market' })
+                .setTimestamp()]
+        });
+    }
 
-    if (cmd === 'slavelist')
-        return client.commands.get('slave').execute(adapt({
-            getSubcommand: () => 'list',
-        }));
+    if (cmd === 'buy') {
+        const target = message.mentions.users.first();
+        if (!target) return message.reply('❌ Usage: `?buy @user`');
+        if (target.id === message.author.id) return message.reply("❌ You can't buy yourself.");
+        if (target.bot) return message.reply("❌ You can't buy a bot.");
 
-    if (cmd === 'daily')
-        return client.commands.get('daily').execute(adapt());
+        const buyer = await getUser(message.author.id, guildId);
+        const targetEcon = await getUser(target.id, guildId);
 
-    if (cmd === 'setupmarket')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setupmarket' }));
-    if (cmd === 'ostockfix')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stockfix' }));
-    if (cmd === 'oremovestock')
-        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'removestock', getUser: n => n === 'user' ? message.mentions.users.first() : null, getString: n => n === 'ticker' ? args[1]?.toUpperCase() : null }));
+        const existingSlave = await Slave.findOne({ userId: target.id, guildId: guildId });
+        if (existingSlave?.ownerId) return message.reply(`❌ <@${target.id}> is already owned by <@${existingSlave.ownerId}>.`);
 
-    if (cmd === 'help')
-        return client.commands.get('help').execute(adapt());
+        const auctionKey = `${guildId}-${target.id}`;
+        if (activeAuctions.has(auctionKey)) return message.reply(`❌ There is already an active auction for <@${target.id}>.`);
+
+        const buyPrice = targetEcon.balance * 2;
+        if (buyPrice <= 0) return message.reply('❌ This person has no balance to determine a price.');
+        if (buyer.balance < buyPrice) return message.reply(`❌ You need **$${buyPrice.toFixed(2)}** to buy <@${target.id}> but only have **$${buyer.balance.toFixed(2)}**.`);
+
+        const auction = {
+            type: 'buy',
+            slaveId: target.id,
+            sellerId: null,
+            currentBidderId: message.author.id,
+            currentBid: buyPrice,
+            channelId: message.channel.id,
+            endsAt: Date.now() + 120000
+        };
+        activeAuctions.set(auctionKey, auction);
+
+        await message.channel.send({
+            embeds: [new EmbedBuilder()
+                .setTitle('🔨 Auction Started!')
+                .setDescription(
+                    `<@${message.author.id}> wants to buy <@${target.id}> for **$${buyPrice.toFixed(2)}**!\n\n` +
+                    `<@${target.id}> you have **2 minutes** to escape by using \`?outbid <amount>\` with more than **$${buyPrice.toFixed(2)}**.\n\n` +
+                    `> If no outbid is placed, the purchase goes through automatically.`
+                )
+                .setColor(0xFF4500)
+                .setTimestamp()]
+        });
+
+        setTimeout(async () => {
+            const current = activeAuctions.get(auctionKey);
+            if (!current) return;
+            activeAuctions.delete(auctionKey);
+
+            const freshBuyer = await getUser(current.currentBidderId, guildId);
+            freshBuyer.balance = parseFloat((freshBuyer.balance - current.currentBid).toFixed(2));
+            await freshBuyer.save();
+
+            let slave = await Slave.findOne({ userId: target.id, guildId: guildId });
+            if (!slave) slave = new Slave({ userId: target.id, guildId: guildId });
+            slave.ownerId = current.currentBidderId;
+            slave.debt = parseFloat((current.currentBid * 2).toFixed(2));
+            slave.totalEarned = 0;
+            await slave.save();
+
+            const channel = await client.channels.fetch(current.channelId).catch(() => null);
+            if (channel) {
+                await channel.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('⛓️ Purchase Complete!')
+                        .setDescription(
+                            `<@${current.currentBidderId}> has bought <@${target.id}> for **$${current.currentBid.toFixed(2)}**!\n\n` +
+                            `<@${target.id}> must earn **$${slave.debt.toFixed(2)}** to be free.\n` +
+                            `Every dollar they earn goes directly to <@${current.currentBidderId}>.`
+                        )
+                        .setColor(0xFF0000)
+                        .setTimestamp()]
+                });
+            }
+
+            try {
+                await target.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('⛓️ You Have Been Bought!')
+                        .setDescription(
+                            `<@${current.currentBidderId}> has purchased you for **$${current.currentBid.toFixed(2)}**.\n\n` +
+                            `You must earn **$${slave.debt.toFixed(2)}** to be free.\n` +
+                            `All money you earn from \`?work\` goes to your owner until your debt is paid.`
+                        )
+                        .setColor(0xFF0000)]
+                });
+            } catch {}
+        }, 120000);
+    }
+
+    if (cmd === 'sellslave') {
+        const target = message.mentions.users.first();
+        const startingBid = parseInt(args[1]);
+        if (!target || !startingBid || startingBid <= 0) return message.reply('❌ Usage: `?sellslave @user <startingBid>`');
+
+        const slave = await Slave.findOne({ userId: target.id, guildId: guildId });
+        if (!slave || slave.ownerId !== message.author.id) return message.reply(`❌ You don't own <@${target.id}>.`);
+
+        const auctionKey = `${guildId}-${target.id}`;
+        if (activeAuctions.has(auctionKey)) return message.reply(`❌ There is already an active auction for <@${target.id}>.`);
+
+        const auction = {
+            type: 'sell',
+            slaveId: target.id,
+            sellerId: message.author.id,
+            currentBidderId: null,
+            currentBid: startingBid,
+            channelId: message.channel.id,
+            endsAt: Date.now() + 120000
+        };
+        activeAuctions.set(auctionKey, auction);
+
+        await message.channel.send({
+            embeds: [new EmbedBuilder()
+                .setTitle('🔨 Slave Auction!')
+                .setDescription(
+                    `<@${message.author.id}> is selling <@${target.id}>!\n\n` +
+                    `**Starting bid:** $${startingBid.toLocaleString()}\n` +
+                    `Use \`?outbid <amount>\` to place a bid.\n\n` +
+                    `> Auction ends in **2 minutes**. Highest bidder wins ownership.`
+                )
+                .setColor(0xFF4500)
+                .setTimestamp()]
+        });
+
+        setTimeout(async () => {
+            const current = activeAuctions.get(auctionKey);
+            if (!current) return;
+            activeAuctions.delete(auctionKey);
+
+            const channel = await client.channels.fetch(current.channelId).catch(() => null);
+
+            if (!current.currentBidderId) {
+                if (channel) await channel.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('❌ Auction Ended — No Bids')
+                        .setDescription(`No one bid on <@${current.slaveId}>. The slave stays with <@${current.sellerId}>.`)
+                        .setColor(0x71717a)]
+                });
+                return;
+            }
+
+            const winner = await getUser(current.currentBidderId, guildId);
+            winner.balance = parseFloat((winner.balance - current.currentBid).toFixed(2));
+            await winner.save();
+
+            const seller = await getUser(current.sellerId, guildId);
+            seller.balance = parseFloat((seller.balance + current.currentBid).toFixed(2));
+            await seller.save();
+
+            slave.ownerId = current.currentBidderId;
+            slave.debt = parseFloat((current.currentBid * 2).toFixed(2));
+            slave.totalEarned = 0;
+            await slave.save();
+
+            if (channel) {
+                await channel.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('⛓️ Auction Complete!')
+                        .setDescription(
+                            `<@${current.currentBidderId}> won the auction for <@${current.slaveId}> with a bid of **$${current.currentBid.toLocaleString()}**!\n\n` +
+                            `<@${current.sellerId}> received **$${current.currentBid.toLocaleString()}**.\n` +
+                            `<@${current.slaveId}> must now earn **$${slave.debt.toLocaleString()}** to be free.`
+                        )
+                        .setColor(0xFF0000)
+                        .setTimestamp()]
+                });
+            }
+
+            try {
+                const slaveUser = await client.users.fetch(current.slaveId);
+                await slaveUser.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('⛓️ You Have Been Sold!')
+                        .setDescription(
+                            `<@${current.sellerId}> sold you to <@${current.currentBidderId}> for **$${current.currentBid.toLocaleString()}**.\n\n` +
+                            `You must earn **$${slave.debt.toLocaleString()}** to be free.`
+                        )
+                        .setColor(0xFF0000)]
+                });
+            } catch {}
+        }, 120000);
+    }
+
+    if (cmd === 'outbid') {
+        const amount = parseInt(args[0]);
+        if (!amount || amount <= 0) return message.reply('❌ Usage: `?outbid <amount>`');
+
+        const userAuctions = [...activeAuctions.entries()].filter(([key]) => key.startsWith(guildId));
+
+        if (!userAuctions.length) return message.reply('❌ There are no active auctions in this server.');
+
+        const bidder = await getUser(message.author.id, guildId);
+
+        let handled = false;
+
+        for (const [auctionKey, auction] of userAuctions) {
+            if (auction.type === 'buy') {
+                if (message.author.id !== auction.slaveId) continue;
+                if (amount <= auction.currentBid) {
+                    await message.reply(`❌ You need to outbid more than **$${auction.currentBid.toFixed(2)}**.`);
+                    handled = true;
+                    break;
+                }
+                if (bidder.balance < amount) {
+                    await message.reply(`❌ You don't have **$${amount.toLocaleString()}** to outbid.`);
+                    handled = true;
+                    break;
+                }
+                activeAuctions.delete(auctionKey);
+                await message.reply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('🛡️ Purchase Blocked!')
+                        .setDescription(`<@${message.author.id}> outbid with **$${amount.toLocaleString()}** and avoided being bought!`)
+                        .setColor(0x00FF99)]
+                });
+                handled = true;
+                break;
+            }
+
+            if (auction.type === 'sell') {
+                if (message.author.id === auction.sellerId) {
+                    await message.reply("❌ You can't bid on your own auction.");
+                    handled = true;
+                    break;
+                }
+                if (message.author.id === auction.slaveId) {
+                    await message.reply("❌ You can't bid to buy yourself.");
+                    handled = true;
+                    break;
+                }
+                if (amount <= auction.currentBid) {
+                    await message.reply(`❌ You need to bid more than the current bid of **$${auction.currentBid.toLocaleString()}**.`);
+                    handled = true;
+                    break;
+                }
+                if (bidder.balance < amount) {
+                    await message.reply(`❌ You don't have **$${amount.toLocaleString()}**.`);
+                    handled = true;
+                    break;
+                }
+                auction.currentBid = amount;
+                auction.currentBidderId = message.author.id;
+                activeAuctions.set(auctionKey, auction);
+                await message.reply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('💰 Bid Placed!')
+                        .setDescription(`<@${message.author.id}> is now the highest bidder at **$${amount.toLocaleString()}** for <@${auction.slaveId}>!`)
+                        .setColor(0x00FF99)]
+                });
+                handled = true;
+                break;
+            }
+        }
+
+        if (!handled) return message.reply('❌ There are no active auctions you can bid on.');
+    }
+
+    if (cmd === 'slave') {
+        const slave = await Slave.findOne({ userId: message.author.id, guildId: guildId });
+        if (!slave?.ownerId) return message.reply('✅ You are a free person.');
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('⛓️ Your Slave Status')
+                .setDescription(`You are owned by <@${slave.ownerId}>`)
+                .addFields(
+                    { name: '💸 Debt Remaining', value: `$${slave.debt.toFixed(2)}`, inline: true },
+                    { name: '💰 Total Earned for Owner', value: `$${slave.totalEarned.toFixed(2)}`, inline: true }
+                )
+                .setColor(0xFF0000)
+                .setFooter({ text: 'Keep working to pay off your debt!' })
+                .setTimestamp()]
+        });
+    }
+
+    if (cmd === 'slavepanel') {
+        const slaves = await Slave.find({ ownerId: message.author.id, guildId: guildId });
+        if (!slaves.length) return message.reply("❌ You don't own anyone.");
+
+        for (const slave of slaves) {
+            const slaveEcon = await getUser(slave.userId, guildId);
+            const embed = new EmbedBuilder()
+                .setTitle(`⛓️ Slave: <@${slave.userId}>`)
+                .addFields(
+                    { name: '💸 Debt Remaining', value: `$${slave.debt.toFixed(2)}`, inline: true },
+                    { name: '💰 Total Earned for You', value: `$${slave.totalEarned.toFixed(2)}`, inline: true },
+                    { name: '🏦 Their Current Balance', value: `$${slaveEcon.balance.toFixed(2)}`, inline: true }
+                )
+                .setColor(0xFF4500)
+                .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`slave_free_${slave.userId}`)
+                    .setLabel('🕊️ Set Free')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`slave_renew_${slave.userId}`)
+                    .setLabel('🔄 Renew (Double Debt)')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId(`slave_check_${slave.userId}`)
+                    .setLabel('📊 Refresh Stats')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`slave_takepay_${slave.userId}`)
+                    .setLabel('💰 Take Payment')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+            await message.channel.send({ embeds: [embed], components: [row] });
+        }
+    }
+
+    if (cmd === 'daily') {
+        const user = await getUser(message.author.id, guildId);
+        const COOLDOWN = 24 * 60 * 60 * 1000;
+        const now2 = Date.now();
+
+        if (user.lastDaily && now2 - user.lastDaily < COOLDOWN) {
+            const msLeft = COOLDOWN - (now2 - user.lastDaily);
+            const h = Math.floor(msLeft / 3600000);
+            const m = Math.floor((msLeft % 3600000) / 60000);
+            const s = Math.floor((msLeft % 60000) / 1000);
+            return message.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('⏳ Daily Already Claimed')
+                    .setDescription(`Come back in **${h}h ${m}m ${s}s**.`)
+                    .setColor(0x2b2d31)]
+            });
+        }
+
+        const streak = user.dailyStreak && user.lastDaily && (now2 - user.lastDaily < 48 * 60 * 60 * 1000)
+            ? user.dailyStreak + 1
+            : 1;
+
+        const base = 200;
+        const bonus = Math.min(streak - 1, 30) * 25;
+        const amount = base + bonus;
+
+        user.lastDaily = now2;
+        user.dailyStreak = streak;
+        user.balance = parseFloat((user.balance + amount).toFixed(2));
+        await user.save();
+
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('📅 Daily Reward')
+                .setDescription(`You claimed your daily reward!`)
+                .addFields(
+                    { name: '💵 Amount', value: `$${amount}`, inline: true },
+                    { name: '🔥 Streak', value: `${streak} day${streak !== 1 ? 's' : ''}`, inline: true },
+                    { name: '💰 New Balance', value: `$${user.balance.toFixed(2)}`, inline: true }
+                )
+                .setColor(0xFFD700)
+                .setFooter({ text: streak >= 7 ? '🔥 Hot streak! Keep it going!' : 'Come back tomorrow for a streak bonus!' })]
+        });
+    }
+
+    if (cmd === 'gleaderboard' || cmd === 'glb') {
+        const allUsers = await User.find().sort({ balance: -1 });
+        const seen = new Map();
+        for (const u of allUsers) {
+            if (!seen.has(u.guildId)) seen.set(u.guildId, u);
+            if (seen.size >= 10) break;
+        }
+        const top = [...seen.values()].sort((a, b) => b.balance - a.balance).slice(0, 10);
+        const description = top.map((u, i) => `**${i + 1}.** <@${u.userId}> — $${u.balance} *(Server: ${u.guildId})*`).join('\n');
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🌍 Global Cash Leaderboard')
+                .setDescription(description || 'No data yet.')
+                .setColor(0xFFD700)
+                .setFooter({ text: 'Top 10 richest players across all servers' })]
+        });
+    }
+
+    if (cmd === 'gbankleaderboard' || cmd === 'gblb') {
+        const allUsers = await User.find().sort({ bank: -1 });
+        const seen = new Map();
+        for (const u of allUsers) {
+            if (!seen.has(u.guildId)) seen.set(u.guildId, u);
+            if (seen.size >= 10) break;
+        }
+        const top = [...seen.values()].sort((a, b) => b.bank - a.bank).slice(0, 10);
+        const description = top.map((u, i) => `**${i + 1}.** <@${u.userId}> — $${u.bank} *(Server: ${u.guildId})*`).join('\n');
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('🌍 Global Bank Leaderboard')
+                .setDescription(description || 'No data yet.')
+                .setColor(0xFFD700)
+                .setFooter({ text: 'Top 10 richest bank balances across all servers' })]
+        });
+    }
+
+    if (cmd === 'setupmarket') {
+        if (!isAdmin(message.member)) return message.reply('❌ You need Administrator permission.');
+        const companies = [
+            { ticker: 'VLR',  name: 'Velera Inc',           price: 142.50 },
+            { ticker: 'FRGS', name: "Frogiee's Arcade",      price: 34.20  },
+            { ticker: 'DOGE', name: 'Doge UB',               price: 0.85   },
+            { ticker: 'CHRI', name: 'Cherri Inc',             price: 58.00  },
+            { ticker: 'TGLC', name: 'TGLSC Corp',             price: 210.00 },
+            { ticker: 'GNMT', name: 'Gn Math',               price: 76.40  },
+            { ticker: 'CNOS', name: 'Cine OS',               price: 99.99  },
+            { ticker: 'OVCL', name: 'Overcloaked Corp',       price: 185.30 },
+            { ticker: 'TRFL', name: 'Truffled Inc',           price: 47.60  },
+            { ticker: 'LNR',  name: 'LUNAR Research Inc',     price: 320.00 },
+            { ticker: 'VOID', name: 'Void Network Corp',      price: 5.55   },
+            { ticker: 'HDR',  name: 'Hydra Network Corp',     price: 88.88  },
+            { ticker: 'NRGX', name: 'NRG Exchange',           price: 500.00 },
+            { ticker: 'PLSM', name: 'Plasma Dynamics Inc',    price: 63.75  },
+            { ticker: 'ZRTH', name: 'Zeroth Systems',         price: 112.00 },
+        ];
+        for (const c of companies) {
+            await Stock.findOneAndUpdate(
+                { guildId, ticker: c.ticker },
+                { guildId, ...c, history: [c.price], totalShares: 0 },
+                { upsert: true, new: true }
+            );
+        }
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('📈 Market Initialized')
+                .setDescription(`Successfully seeded **${companies.length} stocks** for this server.\nUse \`?stocks\` to view the market.`)
+                .setColor(0x00FF99)
+                .setTimestamp()]
+        });
+    }
+
+    if (cmd === 'ogive') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        const targetId = message.mentions.users.first()?.id;
+        const amount = parseInt(args[1]);
+        if (!targetId || !amount) return message.reply('❌ Usage: `?ogive @user <amount>`');
+        const user = await getUser(targetId, guildId);
+        user.balance += amount;
+        await user.save();
+        return message.reply(`Gave $${amount} to <@${targetId}>`);
+    }
+
+    if (cmd === 'osetbalance' || cmd === 'osetbal') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        const targetId = message.mentions.users.first()?.id;
+        const amount = parseInt(args[1]);
+        if (!targetId || amount === undefined) return message.reply('❌ Usage: `?osetbalance @user <amount>`');
+        const user = await getUser(targetId, guildId);
+        user.balance = amount;
+        await user.save();
+        return message.reply('Balance set.');
+    }
+
+    if (cmd === 'osetbank') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        const targetId = message.mentions.users.first()?.id;
+        const amount = parseInt(args[1]);
+        if (!targetId || amount === undefined) return message.reply('❌ Usage: `?osetbank @user <amount>`');
+        const user = await getUser(targetId, guildId);
+        user.bank = amount;
+        await user.save();
+        return message.reply('Bank set.');
+    }
+
+    if (cmd === 'ostockfix') {
+    if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+
+    const stocks = await Stock.find({ guildId });
+    if (!stocks.length) return message.reply('❌ No stocks found. Run `?setupmarket` first.');
+    const results = [];
+
+    for (const stock of stocks) {
+        const oldPrice = stock.price;
+        const change = 1 + (Math.random() * 0.06 - 0.03);
+        const newPrice = Math.max(0.01, parseFloat((stock.price * change).toFixed(2)));
+        stock.history.push(newPrice);
+        if (stock.history.length > 30) stock.history.shift();
+        stock.price = newPrice;
+        await stock.save();
+
+        const diff = newPrice - oldPrice;
+        const pct = ((diff / oldPrice) * 100).toFixed(2);
+        const arrow = diff > 0 ? '🟢' : diff < 0 ? '🔴' : '⚪';
+        results.push(`${arrow} \`${stock.ticker}\` $${oldPrice.toFixed(2)} → $${newPrice.toFixed(2)} (${diff >= 0 ? '+' : ''}${pct}%)`);
+    }
+
+    return message.reply({
+        embeds: [new EmbedBuilder()
+            .setTitle('📈 Stock Market Manually Ticked')
+            .setDescription(results.join('\n'))
+            .setColor(0x00FF99)
+            .setFooter({ text: 'Same logic as the 30-minute auto tick' })
+            .setTimestamp()]
+    });
+}
+
+    
+    if (cmd === 'oremovestock') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        const targetId = message.mentions.users.first()?.id;
+        const ticker = args[1]?.toUpperCase();
+        if (!targetId || !ticker) return message.reply('❌ Usage: `?oremovestock @user <TICKER>`');
+        const portfolio = await Portfolio.findOne({ userId: targetId, guildId });
+        if (!portfolio) return message.reply('❌ User has no portfolio.');
+        const before = portfolio.holdings.length;
+        portfolio.holdings = portfolio.holdings.filter(h => h.ticker !== ticker);
+        if (portfolio.holdings.length === before) return message.reply(`❌ <@${targetId}> doesn't hold \`${ticker}\`.`);
+        await portfolio.save();
+        return message.reply(`✅ Removed all \`${ticker}\` shares from <@${targetId}>'s portfolio.`);
+    }
+
+    if (cmd === 'oresetleaderboard' || cmd === 'oreset') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        await User.updateMany({}, { balance: 0, bank: 0 });
+        return message.reply('Leaderboard reset.');
+    }
+
+    if (cmd === 'oeconomystats' || cmd === 'ostats') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        const users = await User.find({ guildId: guildId });
+        const totalMoney = users.reduce((a, b) => a + b.balance + b.bank, 0);
+        const richest = users.sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank))[0];
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('📊 Economy Stats')
+                .addFields(
+                    { name: 'Users', value: `${users.length}` },
+                    { name: 'Total Money', value: `$${totalMoney}` },
+                    { name: 'Richest', value: richest ? `<@${richest.userId}>` : 'None' }
+                )]
+        });
+    }
+
+    if (cmd === 'ouserinfo') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        const targetId = message.mentions.users.first()?.id;
+        if (!targetId) return message.reply('❌ Usage: `?ouserinfo @user`');
+        const user = await getUser(targetId, guildId);
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('👤 User Info')
+                .addFields(
+                    { name: 'Balance', value: `${user.balance}` },
+                    { name: 'Bank', value: `${user.bank}` }
+                )]
+        });
+    }
+
+    if (cmd === 'ojackpotdrop') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        const amount = parseInt(args[0]);
+        if (!amount) return message.reply('❌ Usage: `?ojackpotdrop <amount>`');
+        const users = await User.find({ guildId: guildId });
+        if (!users.length) return message.reply('No users found.');
+        const winner = users[Math.floor(Math.random() * users.length)];
+        winner.balance += amount;
+        await winner.save();
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('💰 Jackpot Drop')
+                .setDescription(`<@${winner.userId}> won $${amount}`)
+                .setColor(0x00ff00)]
+        });
+    }
+
+    if (cmd === 'clearcooldowns') {
+        if (!isAdmin(message.member)) return message.reply({ content: "❌ You need Administrator permission.", ephemeral: true });
+        workCooldowns.clear();
+        coinflipCooldowns.clear();
+        diceCooldowns.clear();
+        slotsCooldowns.clear();
+        robCooldowns.clear();
+        return message.reply('Cooldowns cleared.');
+    }
+
+    if (cmd === 'help') {
+        return message.reply({
+            embeds: [new EmbedBuilder()
+                .setTitle('📖 Economic Bomb — Commands')
+                .setColor(0x2b2d31)
+                .addFields(
+                    { name: '💰 Economy', value: '`?balance` `?deposit` `?withdraw` `?givemoney` `?work` `?daily`', inline: false },
+                    { name: '🎰 Gambling', value: '`?coinflip <bet> <heads|tails>` `?dice <bet>` `?slots <bet>` `?rob @user` `?duel @user`', inline: false },
+                    { name: '📈 Stocks', value: '`?stocks` `?buystock <TICKER> <shares>` `?sellstock <TICKER> <shares>` `?portfolio` `?stockhistory <TICKER>`', inline: false },
+                    { name: '🏆 Leaderboards', value: '`?leaderboard` `?bankleaderboard` `?gleaderboard` `?gbankleaderboard`', inline: false },
+                    { name: '⛓️ Slave System', value: '`?buy @user` `?sellslave @user <bid>` `?outbid <amount>` `?slave` `?slavepanel` `?slavelist`', inline: false },
+                    { name: '👑 Admin Only', value: '`?ogive` `?osetbalance` `?osetbank` `?oresetleaderboard` `?oeconomystats` `?ouserinfo` `?ojackpotdrop` `?clearcooldowns` `?setupmarket` `?ostockfix`', inline: false }
+                )
+                .setFooter({ text: 'Economic Bomb • Admin commands require Administrator permission' })]
+        });
+    }
 });
 
-// ── Interaction handler ────────────────────────────────────────────
 client.on('interactionCreate', async interaction => {
 
     if (interaction.isChatInputCommand()) {
@@ -413,148 +1289,255 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.isButton()) {
-        const guildId = interaction.guild.id;
 
         if (interaction.customId.startsWith('slave_free_')) {
             const targetId = interaction.customId.split('_')[2];
-            const slave    = await Slave.findOne({ userId: targetId, guildId });
+            const slave = await Slave.findOne({ userId: targetId, guildId: interaction.guild.id });
             if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
-            slave.ownerId = null; slave.debt = 0; slave.totalEarned = 0;
+            slave.ownerId = null;
+            slave.debt = 0;
+            slave.totalEarned = 0;
             await slave.save();
-            await interaction.reply({ embeds: [new EmbedBuilder().setTitle('Slave Freed').setDescription(`<@${targetId}> has been set free.`).setColor(0x00FF99)] });
-            try { const u = await client.users.fetch(targetId); await u.send({ embeds: [new EmbedBuilder().setTitle('You Are Free!').setDescription(`<@${interaction.user.id}> has set you free.`).setColor(0x00FF99)] }); } catch {}
+            await interaction.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🕊️ Slave Freed')
+                    .setDescription(`<@${targetId}> has been set free.`)
+                    .setColor(0x00FF99)]
+            });
+            try {
+                const user = await client.users.fetch(targetId);
+                await user.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('🕊️ You Are Free!')
+                        .setDescription(`<@${interaction.user.id}> has set you free. You are no longer enslaved.`)
+                        .setColor(0x00FF99)]
+                });
+            } catch {}
         }
 
         if (interaction.customId.startsWith('slave_renew_')) {
-            const targetId  = interaction.customId.split('_')[2];
-            const slave     = await Slave.findOne({ userId: targetId, guildId });
+            const targetId = interaction.customId.split('_')[2];
+            const slave = await Slave.findOne({ userId: targetId, guildId: interaction.guild.id });
             if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
+
             const renewCost = parseFloat((slave.debt / 2).toFixed(2));
-            const owner     = await getUser(interaction.user.id, guildId);
-            if (owner.balance < renewCost) return interaction.reply({ content: `❌ You need **$${fmt(renewCost)}** to renew but only have **$${fmt(owner.balance)}**.`, ephemeral: true });
+            const owner = await getUser(interaction.user.id, interaction.guild.id);
+
+            if (owner.balance < renewCost) {
+                return interaction.reply({
+                    content: `❌ You need **$${renewCost.toFixed(2)}** (half of current debt) to renew but only have **$${owner.balance.toFixed(2)}**.`,
+                    ephemeral: true
+                });
+            }
+
             owner.balance = parseFloat((owner.balance - renewCost).toFixed(2));
             await owner.save();
+
             const oldDebt = slave.debt;
-            slave.debt    = parseFloat((slave.debt * 2).toFixed(2));
+            slave.debt = parseFloat((slave.debt * 2).toFixed(2));
             await slave.save();
-            await interaction.reply({ embeds: [new EmbedBuilder().setTitle('Debt Renewed').setDescription(`You paid **$${fmt(renewCost)}** to renew <@${targetId}>'s contract.\nDebt: **$${fmt(oldDebt)}** → **$${fmt(slave.debt)}**`).setColor(0xFF4500)] });
-            try { const u = await client.users.fetch(targetId); await u.send({ embeds: [new EmbedBuilder().setTitle('Your Debt Has Been Renewed!').setDescription(`Your debt has doubled to **$${fmt(slave.debt)}**.`).setColor(0xFF4500)] }); } catch {}
+
+            await interaction.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🔄 Debt Renewed')
+                    .setDescription(
+                        `You paid **$${renewCost.toFixed(2)}** to renew <@${targetId}>'s contract.\n\n` +
+                        `Their debt went from **$${oldDebt.toFixed(2)}** → **$${slave.debt.toFixed(2)}**.`
+                    )
+                    .setColor(0xFF4500)]
+            });
+            try {
+                const user = await client.users.fetch(targetId);
+                await user.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('⛓️ Your Debt Has Been Renewed!')
+                        .setDescription(`Your owner paid to extend your contract. Your debt has doubled to **$${slave.debt.toFixed(2)}**.`)
+                        .setColor(0xFF4500)]
+                });
+            } catch {}
         }
 
         if (interaction.customId.startsWith('slave_check_')) {
             const targetId = interaction.customId.split('_')[2];
-            const slave    = await Slave.findOne({ userId: targetId, guildId });
+            const slave = await Slave.findOne({ userId: targetId, guildId: interaction.guild.id });
             if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
-            const slaveEcon = await getUser(targetId, guildId);
-            await interaction.reply({ ephemeral: true, embeds: [new EmbedBuilder()
-                .setTitle(`Stats for <@${targetId}>`)
-                .addFields(
-                    { name: 'Debt Remaining',      value: `$${fmt(slave.debt)}`,        inline: true },
-                    { name: 'Total Earned for You', value: `$${fmt(slave.totalEarned)}`, inline: true },
-                    { name: 'Their Balance',        value: `$${fmt(slaveEcon.balance)}`, inline: true }
-                )
-                .setColor(0x2b2d31)
-                .setTimestamp()] });
+            const slaveEcon = await getUser(targetId, interaction.guild.id);
+            await interaction.reply({
+                ephemeral: true,
+                embeds: [new EmbedBuilder()
+                    .setTitle(`📊 Stats for <@${targetId}>`)
+                    .addFields(
+                        { name: '💸 Debt Remaining', value: `$${slave.debt.toFixed(2)}`, inline: true },
+                        { name: '💰 Total Earned for You', value: `$${slave.totalEarned.toFixed(2)}`, inline: true },
+                        { name: '🏦 Their Balance', value: `$${slaveEcon.balance.toFixed(2)}`, inline: true }
+                    )
+                    .setColor(0x2b2d31)
+                    .setTimestamp()]
+            });
         }
 
         if (interaction.customId.startsWith('slave_takepay_')) {
             const targetId = interaction.customId.split('_')[2];
-            const slave    = await Slave.findOne({ userId: targetId, guildId });
+            const slave = await Slave.findOne({ userId: targetId, guildId: interaction.guild.id });
             if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
-            const modal = new ModalBuilder().setCustomId(`takepay_modal_${targetId}`).setTitle('Take Payment from Slave');
-            modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('takepay_amount').setLabel(`Amount to take (Debt: $${fmt(slave.debt)})`).setStyle(TextInputStyle.Short).setPlaceholder('e.g. 500').setRequired(true)));
+
+            const modal = new ModalBuilder()
+                .setCustomId(`takepay_modal_${targetId}`)
+                .setTitle('Take Payment from Slave');
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('takepay_amount')
+                        .setLabel(`Amount to take (Debt: $${slave.debt.toFixed(2)})`)
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('e.g. 500')
+                        .setRequired(true)
+                )
+            );
             return interaction.showModal(modal);
         }
 
         if (interaction.customId === 'open_order_modal') {
-            const modal = new ModalBuilder().setCustomId('order_modal').setTitle('Order Form');
+            const modal = new ModalBuilder()
+                .setCustomId('order_modal')
+                .setTitle('Order Form');
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('website_ip').setLabel('Website IP').setStyle(TextInputStyle.Short)),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('website_name').setLabel('Website Name').setStyle(TextInputStyle.Short)),
-                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('filters').setLabel('Filter Links').setStyle(TextInputStyle.Paragraph))
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('filters').setLabel('List of Filter Links you want').setStyle(TextInputStyle.Paragraph))
             );
             return interaction.showModal(modal);
         }
 
         if (interaction.customId.startsWith('respond_')) {
             const userId = interaction.customId.split('_')[1];
-            const modal  = new ModalBuilder().setCustomId(`response_modal_${userId}`).setTitle('Send Links');
-            modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('links').setLabel('Insert Links here').setStyle(TextInputStyle.Paragraph)));
+            const modal = new ModalBuilder()
+                .setCustomId(`response_modal_${userId}`)
+                .setTitle('Send Links');
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('links').setLabel('Insert Links here').setStyle(TextInputStyle.Paragraph))
+            );
             return interaction.showModal(modal);
         }
     }
 
     if (interaction.isModalSubmit()) {
-        const guildId = interaction.guild.id;
-
         if (interaction.customId.startsWith('takepay_modal_')) {
             const targetId = interaction.customId.split('_')[2];
-            const amount   = parseFloat(interaction.fields.getTextInputValue('takepay_amount'));
-            if (!amount || isNaN(amount) || amount <= 0) return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });
-            const slave    = await Slave.findOne({ userId: targetId, guildId });
-            if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
-            const slaveUser = await getUser(targetId, guildId);
-            if (slaveUser.balance < amount) return interaction.reply({ content: `❌ <@${targetId}> only has **$${fmt(slaveUser.balance)}** in their wallet.`, ephemeral: true });
+            const amount = parseFloat(interaction.fields.getTextInputValue('takepay_amount'));
+
+            if (!amount || isNaN(amount) || amount <= 0) {
+                return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });
+            }
+
+            const slave = await Slave.findOne({ userId: targetId, guildId: interaction.guild.id });
+            if (!slave || slave.ownerId !== interaction.user.id) {
+                return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
+            }
+
+            const slaveUser = await getUser(targetId, interaction.guild.id);
+            if (slaveUser.balance < amount) {
+                return interaction.reply({
+                    content: `❌ <@${targetId}> only has **$${slaveUser.balance.toFixed(2)}** in their wallet.`,
+                    ephemeral: true
+                });
+            }
+
             const taken = parseFloat(Math.min(amount, slave.debt).toFixed(2));
             slaveUser.balance = parseFloat((slaveUser.balance - taken).toFixed(2));
             await slaveUser.save();
+
             slave.debt = parseFloat((slave.debt - taken).toFixed(2));
+
             if (slave.debt <= 0) {
-                slave.ownerId = null; slave.debt = 0;
+                slave.ownerId = null;
+                slave.debt = 0;
                 await slave.save();
-                await interaction.reply({ embeds: [new EmbedBuilder().setTitle('Debt Fully Paid!').setDescription(`Took **$${fmt(taken)}** from <@${targetId}>'s wallet — debt cleared, they are free.`).setColor(0x00FF99)] });
-                try { const u = await client.users.fetch(targetId); await u.send({ embeds: [new EmbedBuilder().setTitle('You Are Free!').setDescription(`Your remaining debt was paid. You are now free.`).setColor(0x00FF99)] }); } catch {}
+
+                await interaction.reply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('✅ Debt Fully Paid!')
+                        .setDescription(`You took **$${taken.toFixed(2)}** from <@${targetId}>'s wallet — their debt is now cleared and they are free.`)
+                        .setColor(0x00FF99)]
+                });
+
+                try {
+                    const freedUser = await client.users.fetch(targetId);
+                    await freedUser.send({
+                        embeds: [new EmbedBuilder()
+                            .setTitle('🕊️ You Are Free!')
+                            .setDescription(`<@${interaction.user.id}> took **$${taken.toFixed(2)}** from your wallet to cover your remaining debt. You are now free.`)
+                            .setColor(0x00FF99)]
+                    });
+                } catch {}
             } else {
                 await slave.save();
-                await interaction.reply({ embeds: [new EmbedBuilder().setTitle('Payment Taken').setDescription(`Took **$${fmt(taken)}** from <@${targetId}>'s wallet.`).addFields(
-                    { name: 'Debt Remaining',          value: `$${fmt(slave.debt)}`,        inline: true },
-                    { name: 'Their Remaining Balance', value: `$${fmt(slaveUser.balance)}`, inline: true }
-                ).setColor(0xFF4500)] });
-                try { const u = await client.users.fetch(targetId); await u.send({ embeds: [new EmbedBuilder().setTitle('Payment Taken').setDescription(`**$${fmt(taken)}** was taken from your wallet toward your debt.\nDebt remaining: **$${fmt(slave.debt)}**`).setColor(0xFF4500)] }); } catch {}
+
+                await interaction.reply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('💰 Payment Taken')
+                        .setDescription(`Took **$${taken.toFixed(2)}** from <@${targetId}>'s wallet.`)
+                        .addFields(
+                            { name: '💸 Debt Remaining', value: `$${slave.debt.toFixed(2)}`, inline: true },
+                            { name: '🏦 Their Remaining Balance', value: `$${slaveUser.balance.toFixed(2)}`, inline: true }
+                        )
+                        .setColor(0xFF4500)]
+                });
+
+                try {
+                    const slaveDiscordUser = await client.users.fetch(targetId);
+                    await slaveDiscordUser.send({
+                        embeds: [new EmbedBuilder()
+                            .setTitle('💸 Payment Taken')
+                            .setDescription(`<@${interaction.user.id}> took **$${taken.toFixed(2)}** from your wallet toward your debt.`)
+                            .addFields(
+                                { name: '💸 Debt Remaining', value: `$${slave.debt.toFixed(2)}`, inline: true },
+                                { name: '🏦 Your Remaining Balance', value: `$${slaveUser.balance.toFixed(2)}`, inline: true }
+                            )
+                            .setColor(0xFF4500)
+                            .setFooter({ text: 'Keep working to pay off your debt!' })]
+                    });
+                } catch {}
             }
         }
 
         if (interaction.customId === 'order_modal') {
-            const ip      = interaction.fields.getTextInputValue('website_ip');
-            const name    = interaction.fields.getTextInputValue('website_name');
+            const ip = interaction.fields.getTextInputValue('website_ip');
+            const name = interaction.fields.getTextInputValue('website_name');
             const filters = interaction.fields.getTextInputValue('filters');
-            const userId  = interaction.user.id;
+            const userId = interaction.user.id;
             await interaction.user.send('Your order has been received. You will get your links soon.');
-            await fetch(process.env.WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [{ title: 'New Order', fields: [{ name: 'User', value: `<@${userId}>` }, { name: 'Website IP', value: ip }, { name: 'Website Name', value: name }, { name: 'Filters', value: filters }], color: 0x2b2d31 }], components: [{ type: 1, components: [{ type: 2, label: 'Send Links', style: 1, custom_id: `respond_${userId}` }] }] }) });
+            const embed = {
+                title: 'New Order',
+                fields: [
+                    { name: 'User', value: `<@${userId}>` },
+                    { name: 'Website IP', value: ip },
+                    { name: 'Website Name', value: name },
+                    { name: 'Filters', value: filters }
+                ],
+                color: 0x2b2d31
+            };
+            const components = [{ type: 1, components: [{ type: 2, label: 'Send Links', style: 1, custom_id: `respond_${userId}` }] }];
+            await fetch(process.env.WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ embeds: [embed], components })
+            });
             return interaction.reply({ content: 'Order submitted! Check your DMs.', ephemeral: true });
         }
 
         if (interaction.customId.startsWith('response_modal_')) {
             const userId = interaction.customId.split('_')[2];
-            const links  = interaction.fields.getTextInputValue('links');
-            try { const u = await client.users.fetch(userId); await u.send(`Your Order is Ready!\n\n${links}`); return interaction.reply({ content: 'Links sent to user.', ephemeral: true }); }
-            catch { return interaction.reply({ content: 'Failed to DM user.', ephemeral: true }); }
+            const links = interaction.fields.getTextInputValue('links');
+            try {
+                const user = await client.users.fetch(userId);
+                await user.send(`📦 Your Order is Ready!\n\n${links}`);
+                return interaction.reply({ content: 'Links sent to user.', ephemeral: true });
+            } catch (err) {
+                return interaction.reply({ content: 'Failed to DM user.', ephemeral: true });
+            }
         }
     }
 });
 
-(async () => {
-    try {
-        await deployCommands();
-    } catch (e) {
-        console.error('Command deploy failed:', e.message);
-    }
-
-    let redeployTimer = null;
-    fs.watch('./src/commands', async (_, filename) => {
-        if (!filename?.endsWith('.js')) return;
-        clearTimeout(redeployTimer);
-        redeployTimer = setTimeout(async () => {
-            console.log(`${filename} changed - redeploying commands...`);
-            try {
-                await deployCommands();
-                loadCommands();
-                console.log('Commands reloaded.');
-            } catch (e) {
-                console.error('Redeploy failed:', e.message);
-            }
-        }, 2000);
-    });
-
-    client.login(process.env.TOKEN);
-})();
+client.login(process.env.TOKEN);

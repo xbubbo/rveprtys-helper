@@ -10,7 +10,9 @@ const {
     ActionRowBuilder,
     EmbedBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    REST,
+    Routes
 } = require('discord.js');
 
 const fs = require('fs');
@@ -43,11 +45,36 @@ const client = new Client({
 
 client.commands = new Collection();
 
-const commandFiles = fs.readdirSync('./src/commands').filter(f => f.endsWith('.js'));
-for (const file of commandFiles) {
-    const command = require(`./src/commands/${file}`);
-    client.commands.set(command.data.name, command);
+function loadCommands() {
+    client.commands.clear();
+    for (const file of fs.readdirSync('./src/commands').filter(f => f.endsWith('.js'))) {
+        try {
+            delete require.cache[require.resolve(`./src/commands/${file}`)];
+            const command = require(`./src/commands/${file}`);
+            client.commands.set(command.data.name, command);
+        } catch (e) {
+            console.error(`Failed to load ${file}:`, e.message);
+        }
+    }
 }
+
+async function deployCommands() {
+    const commands = [];
+    for (const file of fs.readdirSync('./src/commands').filter(f => f.endsWith('.js'))) {
+        try {
+            delete require.cache[require.resolve(`./src/commands/${file}`)];
+            const cmd = require(`./src/commands/${file}`);
+            if (cmd?.data?.toJSON) commands.push(cmd.data.toJSON());
+        } catch (e) {
+            console.error(`Failed to read ${file}:`, e.message);
+        }
+    }
+    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+    console.log(`Deployed ${commands.length} slash commands.`);
+}
+
+loadCommands();
 
 
 client.once('ready', () => {
@@ -503,4 +530,28 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login(process.env.TOKEN);
+(async () => {
+    try {
+        await deployCommands();
+    } catch (e) {
+        console.error('Command deploy failed:', e.message);
+    }
+
+    let redeployTimer = null;
+    fs.watch('./src/commands', async (_, filename) => {
+        if (!filename?.endsWith('.js')) return;
+        clearTimeout(redeployTimer);
+        redeployTimer = setTimeout(async () => {
+            console.log(`${filename} changed - redeploying commands...`);
+            try {
+                await deployCommands();
+                loadCommands();
+                console.log('Commands reloaded.');
+            } catch (e) {
+                console.error('Redeploy failed:', e.message);
+            }
+        }, 2000);
+    });
+
+    client.login(process.env.TOKEN);
+})();

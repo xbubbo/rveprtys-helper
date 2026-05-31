@@ -899,10 +899,12 @@ client.on('messageCreate', async message => {
                     break;
                 }
                 activeAuctions.delete(auctionKey);
+                bidder.balance = parseFloat((bidder.balance - amount).toFixed(2));
+                await bidder.save();
                 await message.reply({
                     embeds: [new EmbedBuilder()
                         .setTitle('🛡️ Purchase Blocked!')
-                        .setDescription(`<@${message.author.id}> outbid with **$${amount.toLocaleString()}** and avoided being bought!`)
+                        .setDescription(`<@${message.author.id}> paid **$${amount.toLocaleString()}** and avoided being bought!\n💰 Remaining balance: **$${bidder.balance.toLocaleString()}**`)
                         .setColor(0x00FF99)]
                 });
                 handled = true;

@@ -24,7 +24,7 @@ module.exports = {
             .setFooter({ text: 'Economic Bomb • All commands also work with the ? prefix' });
 
         if (admin) {
-            embed.addFields({ name: 'Admin Only', value: '`/ogive` `/osetbalance` `/osetbank` `/oresetleaderboard` `/oeconomystats` `/ouserinfo` `/ojackpotdrop` `/clearcooldowns` `/setupmarket` `/ostockfix` `/oremovestock`', inline: false });
+            embed.addFields({ name: 'Owner Only', value: '`/owner give` `/owner setbalance` `/owner setbank` `/owner stats` `/owner userinfo` `/owner jackpot` `/owner reseteconomy` `/owner clearcooldowns` `/owner setupmarket` `/owner stockfix` `/owner removestock` `/owner bounty` `/owner dm` `/owner panel` `/owner season2`', inline: false });
         }
 
         return interaction.reply({ embeds: [embed], ephemeral: true });

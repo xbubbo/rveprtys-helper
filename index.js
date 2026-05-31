@@ -148,7 +148,6 @@ client.on('messageCreate', async message => {
         }
     }
 
-    // ── Adapter: wraps a message into a slash-command-like object ───
     const adapt = (opts = {}) => ({
         user:   message.author,
         guild:  message.guild,
@@ -231,42 +230,41 @@ client.on('messageCreate', async message => {
         }));
     }
 
+    if (cmd === 'owner') {
+        const sub  = args.shift()?.toLowerCase();
+        const user = () => message.mentions.users.first();
+        const num  = i => parseFloat(args[i]);
+        const str  = i => args[i] ?? null;
+        if (sub === 'give')           return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'give',          getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
+        if (sub === 'setbalance')     return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbalance',    getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
+        if (sub === 'setbank')        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbank',       getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
+        if (sub === 'stats')          return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stats' }));
+        if (sub === 'userinfo')       return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'userinfo',      getUser: n => n === 'user' ? user() : null }));
+        if (sub === 'jackpot')        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'jackpot',       getNumber: n => n === 'amount' ? num(0) : null }));
+        if (sub === 'reseteconomy')   return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'reseteconomy' }));
+        if (sub === 'clearcooldowns') return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'clearcooldowns' }));
+        if (sub === 'stockfix')       return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stockfix' }));
+        if (sub === 'removestock')    return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'removestock',   getUser: n => n === 'user' ? user() : null, getString: n => n === 'ticker' ? str(0)?.toUpperCase() : null }));
+        if (sub === 'setupmarket')    return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setupmarket' }));
+        if (sub === 'bounty')         return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'bounty',        getUser: n => n === 'user' ? user() : null, getNumber: n => n === 'amount' ? num(1) : null }));
+    }
+
     if (cmd === 'ogive')
-        return client.commands.get('ogive').execute(adapt({
-            getUser:   n => n === 'user'   ? message.mentions.users.first() : null,
-            getNumber: n => n === 'amount' ? parseFloat(args[1])            : null,
-        }));
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'give',        getUser: n => n === 'user' ? message.mentions.users.first() : null, getNumber: n => n === 'amount' ? parseFloat(args[1]) : null }));
     if (cmd === 'osetbalance' || cmd === 'osetbal')
-        return client.commands.get('osetbalance').execute(adapt({
-            getUser:   n => n === 'user'   ? message.mentions.users.first() : null,
-            getNumber: n => n === 'amount' ? parseFloat(args[1])            : null,
-        }));
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbalance',  getUser: n => n === 'user' ? message.mentions.users.first() : null, getNumber: n => n === 'amount' ? parseFloat(args[1]) : null }));
     if (cmd === 'osetbank')
-        return client.commands.get('osetbank').execute(adapt({
-            getUser:   n => n === 'user'   ? message.mentions.users.first() : null,
-            getNumber: n => n === 'amount' ? parseFloat(args[1])            : null,
-        }));
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setbank',     getUser: n => n === 'user' ? message.mentions.users.first() : null, getNumber: n => n === 'amount' ? parseFloat(args[1]) : null }));
     if (cmd === 'oeconomystats' || cmd === 'ostats')
-        return client.commands.get('oeconomystats').execute(adapt());
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stats' }));
     if (cmd === 'ouserinfo')
-        return client.commands.get('ouserinfo').execute(adapt({
-            getUser: n => n === 'user' ? message.mentions.users.first() : null,
-        }));
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'userinfo',    getUser: n => n === 'user' ? message.mentions.users.first() : null }));
     if (cmd === 'ojackpotdrop')
-        return client.commands.get('ojackpotdrop').execute(adapt({
-            getNumber: n => n === 'amount' ? parseFloat(args[0]) : null,
-        }));
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'jackpot',     getNumber: n => n === 'amount' ? parseFloat(args[0]) : null }));
     if (cmd === 'oresetleaderboard' || cmd === 'oreset')
-        return client.commands.get('oresetleaderboard').execute(adapt());
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'reseteconomy' }));
     if (cmd === 'clearcooldowns')
-        return client.commands.get('clearcooldowns').execute(adapt());
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'clearcooldowns' }));
 
     if (cmd === 'stock') {
         const sub = args.shift()?.toLowerCase();
@@ -347,16 +345,11 @@ client.on('messageCreate', async message => {
         return client.commands.get('daily').execute(adapt());
 
     if (cmd === 'setupmarket')
-        return client.commands.get('setupmarket').execute(adapt());
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'setupmarket' }));
     if (cmd === 'ostockfix')
-        return client.commands.get('ostockfix').execute(adapt());
-
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'stockfix' }));
     if (cmd === 'oremovestock')
-        return client.commands.get('oremovestock').execute(adapt({
-            getUser:   n => n === 'user'   ? message.mentions.users.first() : null,
-            getString: n => n === 'ticker' ? args[1]?.toUpperCase()         : null,
-        }));
+        return client.commands.get('owner').execute(adapt({ getSubcommand: () => 'removestock', getUser: n => n === 'user' ? message.mentions.users.first() : null, getString: n => n === 'ticker' ? args[1]?.toUpperCase() : null }));
 
     if (cmd === 'help')
         return client.commands.get('help').execute(adapt());

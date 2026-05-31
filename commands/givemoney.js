@@ -5,7 +5,7 @@ const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2,
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('givemoney')
+        .setName('give')
         .setDescription('Give money to another user')
         .addUserOption(option =>
             option.setName('user').setDescription('Recipient').setRequired(true)

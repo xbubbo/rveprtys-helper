@@ -184,7 +184,7 @@ client.on('messageCreate', async message => {
         }));
 
     if (cmd === 'givemoney' || cmd === 'give')
-        return client.commands.get('givemoney').execute(adapt({
+        return client.commands.get('give').execute(adapt({
             getUser:    n => n === 'user'   ? message.mentions.users.first() : null,
             getInteger: n => n === 'amount' ? parseInt(args[1])              : null,
         }));

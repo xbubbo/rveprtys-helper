@@ -1,9 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getUser, anticheat } = require('../utils/economy');
-const cooldowns = require('../utils/cooldowns');
 
-const COOLDOWN = 5 * 60 * 1000;
-const SYMBOLS  = ['🍒', '🍋', '🍉', '⭐', '💎', '🍀'];
+const SYMBOLS = ['🍒', '🍋', '🍉', '⭐', '💎', '🍀'];
 const fmt = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 module.exports = {
@@ -30,21 +28,9 @@ module.exports = {
         const game   = interaction.options.getString('game');
         const bet    = interaction.options.getInteger('bet');
         const choice = interaction.options.getString('choice');
-        const now    = Date.now();
 
         if (game === 'coinflip' && !['heads', 'tails'].includes(choice))
             return interaction.reply({ content: '❌ You must pick `heads` or `tails` for coinflip.', ephemeral: true });
-
-        const cdMap = cooldowns[game] ?? cooldowns.slots;
-        if (cdMap.has(interaction.user.id)) {
-            const exp = cdMap.get(interaction.user.id) + COOLDOWN;
-            if (now < exp) {
-                const left = exp - now;
-                const m = Math.floor(left / 60000), s = Math.ceil((left % 60000) / 1000);
-                return interaction.reply({ content: `⏳ Cooldown active. Try again in **${m > 0 ? `${m}m ${s}s` : `${s}s`}**.`, ephemeral: true });
-            }
-        }
-        cdMap.set(interaction.user.id, now);
 
         const user = await getUser(interaction.user.id, interaction.guild.id);
         if (!bet || bet <= 0 || user.balance < bet)

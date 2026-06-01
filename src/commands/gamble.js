@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { getUser, anticheat } = require('../utils/economy');
 const { formatNumber } = require('../utils/format');
 const {
@@ -297,85 +297,164 @@ module.exports = {
         if (game === 'crash') {
             await user.save();
 
-            const r        = Math.random();
-            const crashAt  = parseFloat(Math.min(500, Math.max(1.01, 0.99 / (1 - r * 0.998))).toFixed(2));
-            let current    = 1.00;
-            let cashedOut  = false;
-            let crashed    = false;
+            let autoLimit  = null;
+            let gameActive = false;
 
-            const crashEmbed = (mult) => new EmbedBuilder()
+            const lobbyEmbed = () => new EmbedBuilder()
                 .setTitle('🚀 Crash')
                 .setDescription(
-                    `Multiplier: **${mult.toFixed(2)}x**\n` +
-                    `Potential payout: **$${formatNumber(parseFloat((bet * mult).toFixed(2)))}**\n\n` +
-                    'Cash out before it crashes!'
+                    `Bet: **$${formatNumber(bet)}**\n` +
+                    (autoLimit ? `Auto cashout at **${autoLimit.toFixed(2)}x**` : 'No auto cashout set') +
+                    '\n\nSet a limit or start when ready.'
                 )
-                .setColor(mult < 2 ? 0x2ecc71 : mult < 10 ? 0xf1c40f : 0xe74c3c);
+                .setColor(0x2b2d31);
 
-            const cashBtn = (mult) => new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('crash_cashout').setLabel(`Cash Out (${mult.toFixed(2)}x)`).setStyle(ButtonStyle.Success)
+            const lobbyRow = () => new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('crash_cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('crash_setlimit').setLabel('Set Limit').setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId('crash_start').setLabel('Start').setStyle(ButtonStyle.Success),
             );
 
-            const msg = await interaction.reply({ embeds: [crashEmbed(current)], components: [cashBtn(current)], fetchReply: true });
+            const msg = await interaction.reply({ embeds: [lobbyEmbed()], components: [lobbyRow()], fetchReply: true });
 
-            const collector = msg.createMessageComponentCollector({ filter: i => i.user.id === interaction.user.id, time: 90000 });
-
-            const interval = setInterval(async () => {
-                if (cashedOut || crashed) { clearInterval(interval); return; }
-                current = parseFloat((current * 1.08).toFixed(2));
-                if (current >= crashAt) {
-                    clearInterval(interval);
-                    if (cashedOut) return;
-                    crashed = true;
-                    collector.stop('crashed');
-                    trackWin(user, 0, bet);
-                    await user.save();
-                    if (cashedOut) return;
-                    await anticheat(interaction.client, interaction.user.id, interaction.guild.id);
-                    await msg.edit({
-                        embeds: [new EmbedBuilder().setTitle('🚀 Crash').setDescription(`Crashed at **${crashAt.toFixed(2)}x**!\nYou lost **$${formatNumber(bet)}**.`).setColor(0xff0000)],
-                        components: [],
-                    }).catch(() => {});
-                } else {
-                    await msg.edit({ embeds: [crashEmbed(current)], components: [cashBtn(current)] }).catch(() => {});
-                }
-            }, 600);
-
-            collector.on('collect', async i => {
-                if (i.customId !== 'crash_cashout' || cashedOut || crashed) return;
-                cashedOut = true;
-                clearInterval(interval);
-                collector.stop('done');
-                let payout = parseFloat((bet * current).toFixed(2));
-                let note   = '';
-                if ((user.gamblingBoostExpires ?? 0) > Date.now() && payout > bet) { payout = parseFloat((payout * 1.05).toFixed(2)); note = '\n🛟 *+5% lifesaver boost*'; }
-                user.balance = parseFloat((user.balance + payout).toFixed(2));
-                trackWin(user, payout, bet);
-                await user.save();
-                await anticheat(interaction.client, interaction.user.id, interaction.guild.id);
-                await i.update({
-                    embeds: [new EmbedBuilder().setTitle('🚀 Crash')
-                        .setDescription(`Cashed out at **${current.toFixed(2)}x**! You won **$${formatNumber(payout)}**!${note}`)
-                        .addFields({ name: '💵 New Balance', value: `$${formatNumber(user.balance)}`, inline: true })
-                        .setColor(0x00ff00)],
-                    components: [],
-                });
+            const lobbyCollector = msg.createMessageComponentCollector({
+                filter: i => i.user.id === interaction.user.id,
+                time: 60000,
             });
 
-            collector.on('end', async (_, reason) => {
-                if (reason !== 'done' && reason !== 'crashed' && !cashedOut && !crashed) {
-                    cashedOut = true;
-                    clearInterval(interval);
-                    const payout = parseFloat((bet * current).toFixed(2));
-                    user.balance = parseFloat((user.balance + payout).toFixed(2));
-                    trackWin(user, payout, bet);
+            lobbyCollector.on('collect', async i => {
+                if (i.customId === 'crash_cancel') {
+                    lobbyCollector.stop('cancelled');
+                    user.balance = parseFloat((user.balance + bet).toFixed(2));
+                    await user.save();
+                    return i.update({
+                        embeds: [new EmbedBuilder().setTitle('🚀 Crash').setDescription('Cancelled. Bet refunded.').setColor(0x71717a)],
+                        components: [],
+                    });
+                }
+
+                if (i.customId === 'crash_setlimit') {
+                    const modal = new ModalBuilder().setCustomId('crash_limit_modal').setTitle('Set Auto Cashout');
+                    modal.addComponents(new ActionRowBuilder().addComponents(
+                        new TextInputBuilder()
+                            .setCustomId('crash_limit_val')
+                            .setLabel('Cash out at multiplier (e.g. 2.50)')
+                            .setStyle(TextInputStyle.Short)
+                            .setPlaceholder('1.01 - 500')
+                            .setRequired(true)
+                    ));
+                    await i.showModal(modal);
+                    const sub = await i.awaitModalSubmit({ time: 30000 }).catch(() => null);
+                    if (!sub) return;
+                    const val = parseFloat(sub.fields.getTextInputValue('crash_limit_val'));
+                    if (isNaN(val) || val < 1.01 || val > 500)
+                        return sub.reply({ content: '❌ Limit must be between 1.01 and 500.', ephemeral: true });
+                    autoLimit = val;
+                    return sub.update({ embeds: [lobbyEmbed()], components: [lobbyRow()] });
+                }
+
+                if (i.customId === 'crash_start') {
+                    gameActive = true;
+                    lobbyCollector.stop('started');
+                    await i.deferUpdate();
+
+                    const r       = Math.random();
+                    const crashAt = parseFloat(Math.min(500, Math.max(1.01, 0.99 / (1 - r * 0.998))).toFixed(2));
+                    let current   = 1.00;
+                    let cashedOut = false;
+                    let crashed   = false;
+                    let interval;
+
+                    const crashEmbed = (mult) => new EmbedBuilder()
+                        .setTitle('🚀 Crash')
+                        .setDescription(
+                            `Multiplier: **${mult.toFixed(2)}x**\n` +
+                            `Potential payout: **$${formatNumber(parseFloat((bet * mult).toFixed(2)))}**\n\n` +
+                            (autoLimit ? `Auto cashout at **${autoLimit.toFixed(2)}x**` : 'Cash out before it crashes!')
+                        )
+                        .setColor(mult < 2 ? 0x2ecc71 : mult < 10 ? 0xf1c40f : 0xe74c3c);
+
+                    const cashBtn = (mult) => new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('crash_cashout').setLabel(`Cash Out (${mult.toFixed(2)}x)`).setStyle(ButtonStyle.Success)
+                    );
+
+                    const doCashout = async (mult, buttonInteraction = null) => {
+                        cashedOut = true;
+                        clearInterval(interval);
+                        gameCollector.stop('done');
+                        let payout = parseFloat((bet * mult).toFixed(2));
+                        let note   = '';
+                        if ((user.gamblingBoostExpires ?? 0) > Date.now() && payout > bet) { payout = parseFloat((payout * 1.05).toFixed(2)); note = '\n🛟 *+5% lifesaver boost*'; }
+                        user.balance = parseFloat((user.balance + payout).toFixed(2));
+                        trackWin(user, payout, bet);
+                        await user.save();
+                        await anticheat(interaction.client, interaction.user.id, interaction.guild.id);
+                        const embed = new EmbedBuilder().setTitle('🚀 Crash')
+                            .setDescription(`Cashed out at **${mult.toFixed(2)}x**! You won **$${formatNumber(payout)}**!${note}`)
+                            .addFields({ name: '💵 New Balance', value: `$${formatNumber(user.balance)}`, inline: true })
+                            .setColor(0x00ff00);
+                        if (buttonInteraction) await buttonInteraction.update({ embeds: [embed], components: [] });
+                        else await msg.edit({ embeds: [embed], components: [] }).catch(() => {});
+                    };
+
+                    await msg.edit({ embeds: [crashEmbed(current)], components: [cashBtn(current)] });
+
+                    const gameCollector = msg.createMessageComponentCollector({
+                        filter: j => j.user.id === interaction.user.id,
+                        time: 90000,
+                    });
+
+                    interval = setInterval(async () => {
+                        if (cashedOut || crashed) { clearInterval(interval); return; }
+                        current = parseFloat((current * 1.08).toFixed(2));
+
+                        if (autoLimit && current >= autoLimit && !cashedOut && !crashed) {
+                            clearInterval(interval);
+                            await doCashout(autoLimit);
+                            return;
+                        }
+
+                        if (current >= crashAt) {
+                            clearInterval(interval);
+                            if (cashedOut) return;
+                            crashed = true;
+                            gameCollector.stop('crashed');
+                            trackWin(user, 0, bet);
+                            await user.save();
+                            if (cashedOut) return;
+                            await anticheat(interaction.client, interaction.user.id, interaction.guild.id);
+                            await msg.edit({
+                                embeds: [new EmbedBuilder().setTitle('🚀 Crash').setDescription(`Crashed at **${crashAt.toFixed(2)}x**!\nYou lost **$${formatNumber(bet)}**.`).setColor(0xff0000)],
+                                components: [],
+                            }).catch(() => {});
+                        } else {
+                            await msg.edit({ embeds: [crashEmbed(current)], components: [cashBtn(current)] }).catch(() => {});
+                        }
+                    }, 600);
+
+                    gameCollector.on('collect', async j => {
+                        if (j.customId !== 'crash_cashout' || cashedOut || crashed) return;
+                        await doCashout(current, j);
+                    });
+
+                    gameCollector.on('end', async (_, reason) => {
+                        if (reason !== 'done' && reason !== 'crashed' && !cashedOut && !crashed)
+                            await doCashout(current);
+                    });
+                }
+            });
+
+            lobbyCollector.on('end', async (_, reason) => {
+                if (reason !== 'started' && reason !== 'cancelled' && !gameActive) {
+                    user.balance = parseFloat((user.balance + bet).toFixed(2));
                     await user.save();
                     await msg.edit({
-                        embeds: [new EmbedBuilder().setTitle('🚀 Crash').setDescription(`Timed out - auto cashed out at **${current.toFixed(2)}x**! You received **$${formatNumber(payout)}**.`).setColor(0xffff00)],
+                        embeds: [new EmbedBuilder().setTitle('🚀 Crash').setDescription('Lobby timed out. Bet refunded.').setColor(0x71717a)],
                         components: [],
                     }).catch(() => {});
                 }
             });
+
             return;
         }
 

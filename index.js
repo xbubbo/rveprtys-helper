@@ -146,25 +146,41 @@ client.on('messageCreate', async message => {
         });
     }
 
+    // MODULE_MAP: category keys map to arrays of commands they cover.
+    // Individual command keys (same as cmd name) can also be toggled directly.
     const MODULE_MAP = {
-        work: ['work'],
-        rob: ['rob'],
-        coinflip: ['coinflip', 'cf'],
-        dice: ['dice'],
-        slots: ['slots'],
-        duel: ['duel'],
-        stocks: ['stocks', 'stock', 'stocklist', 'buystock', 'sellstock', 'portfolio', 'port', 'stockhistory', 'sh'],
-        slave: ['buy', 'sellslave', 'outbid', 'slave', 'slavepanel', 'slavelist'],
-        givemoney: ['givemoney', 'give'],
-        deposit: ['deposit', 'dep', 'bank'],
-        withdraw: ['withdraw', 'with'],
-        leaderboard: ['leaderboard', 'lb', 'bankleaderboard', 'blb', 'gleaderboard', 'glb', 'gbankleaderboard', 'gblb']
+        // Categories
+        economy:     ['balance', 'bal', 'daily', 'weekly'],
+        work:        ['work'],
+        rob:         ['rob'],
+        coinflip:    ['coinflip', 'cf'],
+        dice:        ['dice'],
+        slots:       ['slots'],
+        duel:        ['duel'],
+        stocks:      ['stocks', 'stock', 'buystock', 'sellstock', 'portfolio', 'port', 'stockhistory', 'sh', 'setupmarket', 'ostockfix'],
+        slave:       ['buy', 'outbid', 'slave', 'slavepanel', 'slavelist'],
+        givemoney:   ['givemoney', 'give'],
+        deposit:     ['deposit', 'dep'],
+        withdraw:    ['withdraw', 'with'],
+        leaderboard: ['leaderboard', 'lb', 'bankleaderboard', 'blb', 'gleaderboard', 'glb', 'gbankleaderboard', 'gblb'],
+        // Individual command overrides (cmd name = module key)
+        balance:      ['balance', 'bal'],
+        daily:        ['daily'],
+        weekly:       ['weekly'],
+        buystock:     ['buystock'],
+        sellstock:    ['sellstock'],
+        portfolio:    ['portfolio', 'port'],
+        stockhistory: ['stockhistory', 'sh'],
+        slavepanel:   ['slavepanel'],
+        slavelist:    ['slavelist'],
+        outbid:       ['outbid'],
     };
+    // Check both category and individual command disable
     for (const [mod, cmds] of Object.entries(MODULE_MAP)) {
         if (cmds.includes(cmd) && modules[mod] === false) {
             return message.reply({
                 embeds: [new EmbedBuilder()
-                    .setTitle('🚫 Feature Disabled')
+                    .setTitle('Feature Disabled')
                     .setDescription(`The \`?${cmd}\` command is currently disabled in this server.`)
                     .setColor(0x71717a)]
             });
@@ -209,11 +225,21 @@ client.on('messageCreate', async message => {
     if (cmd === 'work') return run('work', {});
     if (cmd === 'daily') return run('daily', {});
 
-    if (cmd === 'givemoney' || cmd === 'give')
+    if (cmd === 'givemoney' || cmd === 'give') {
+        const giveTarget = message.mentions.users.first();
+        if (giveTarget && giveTarget.id === message.author.id) {
+            return message.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('Nice try')
+                    .setDescription("You can't give money to yourself.")
+                    .setColor(0xff0000)]
+            });
+        }
         return run('give', {
-            getUser: n => n === 'user' ? message.mentions.users.first() : null,
+            getUser: n => n === 'user' ? giveTarget : null,
             getInteger: n => n === 'amount' ? parseInt(args[1]) : null,
         });
+    }
 
     if (cmd === 'coinflip' || cmd === 'cf') return run('gamble', { getString: n => n === 'game' ? 'coinflip' : null, getInteger: n => n === 'bet' ? parseFloat(args[0]) : null });
     if (cmd === 'dice') return run('gamble', { getString: n => n === 'game' ? 'dice' : null, getInteger: n => n === 'bet' ? parseFloat(args[0]) : null });

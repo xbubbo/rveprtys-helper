@@ -84,7 +84,6 @@ module.exports = {
         user.balance = parseFloat((user.balance - bet).toFixed(2));
 
         if (game === 'blackjack') {
-            await user.save();
             const deck = shuffledDeck();
             let playerHand = [deck.pop(), deck.pop()];
             const dealerHand = [deck.pop(), deck.pop()];
@@ -92,9 +91,9 @@ module.exports = {
             if (handTotal(playerHand) === 21 || handTotal(dealerHand) === 21) {
                 const pBJ = handTotal(playerHand) === 21, dBJ = handTotal(dealerHand) === 21;
                 let winnings = 0, result;
-                if (pBJ && dBJ) { winnings = bet;                                    result = `Both Blackjack - Push, bet refunded.`; }
-                else if (pBJ)   { winnings = parseFloat((bet * 2.5).toFixed(2));     result = `Blackjack! You won **$${fmt(winnings)}**!`; }
-                else            {                                                      result = `Dealer Blackjack. You lost **$${fmt(bet)}**.`; }
+                if (pBJ && dBJ) { winnings = bet;                                result = `Both Blackjack - Push, bet refunded.`; }
+                else if (pBJ)   { winnings = parseFloat((bet * 2.5).toFixed(2)); result = `Blackjack! You won **$${fmt(winnings)}**!`; }
+                else            {                                                  result = `Dealer Blackjack. You lost **$${fmt(bet)}**.`; }
                 user.balance = parseFloat((user.balance + winnings).toFixed(2));
                 trackWin(user, winnings, bet);
                 await user.save();
@@ -103,6 +102,8 @@ module.exports = {
                     .setDescription(`Your hand: ${showHand(playerHand)} = **${handTotal(playerHand)}**\nDealer: ${showHand(dealerHand)} = **${handTotal(dealerHand)}**\n\n${result}`)
                     .setColor(winnings > bet ? 0x00ff00 : winnings > 0 ? 0xffff00 : 0xff0000)] });
             }
+
+            await user.save();
 
             const bjEmbed = (pHand, extra = '') => new EmbedBuilder()
                 .setTitle('Blackjack')

@@ -9,16 +9,16 @@ const fmtInt = (n) => Number(n).toLocaleString('en-US');
 const COOLDOWN = 30 * 60 * 1000;
 
 const LOCATIONS = {
-    couch:               { emoji: '🛋️',  min: 25,   max: 75,   deathChance: 0.01, label: 'Behind the Couch' },
-    car:                 { emoji: '🚗',  min: 100,  max: 350,  deathChance: 0.03, label: 'Abandoned Car' },
-    house:               { emoji: '🏠',  min: 75,   max: 200,  deathChance: 0.02, label: 'Empty House' },
-    park:                { emoji: '🌳',  min: 50,   max: 250,  deathChance: 0.03, label: 'Local Park' },
-    dumpster:            { emoji: '🗑️',  min: 50,   max: 300,  deathChance: 0.05, label: 'Dumpster' },
-    street:              { emoji: '🌆',  min: 100,  max: 500,  deathChance: 0.07, label: 'Dark Street' },
-    alley:               { emoji: '🌃',  min: 150,  max: 700,  deathChance: 0.10, label: 'Back Alley' },
-    abandoned_building:  { emoji: '🏚️',  min: 200,  max: 1000, deathChance: 0.14, label: 'Abandoned Building' },
-    bank_vault:          { emoji: '🏦',  min: 500,  max: 2500, deathChance: 0.20, label: 'Bank Vault' },
-    area_51:             { emoji: '👽',  min: 1000, max: 6000, deathChance: 0.35, label: 'Area 51' },
+    couch:               { emoji: '🛋️',  min: 25,   max: 75,   deathChance: 0.05, label: 'Behind the Couch' },
+    car:                 { emoji: '🚗',  min: 100,  max: 350,  deathChance: 0.08, label: 'Abandoned Car' },
+    house:               { emoji: '🏠',  min: 75,   max: 200,  deathChance: 0.06, label: 'Empty House' },
+    park:                { emoji: '🌳',  min: 50,   max: 250,  deathChance: 0.10, label: 'Local Park' },
+    dumpster:            { emoji: '🗑️',  min: 50,   max: 300,  deathChance: 0.15, label: 'Dumpster' },
+    street:              { emoji: '🌆',  min: 100,  max: 500,  deathChance: 0.22, label: 'Dark Street' },
+    alley:               { emoji: '🌃',  min: 150,  max: 700,  deathChance: 0.30, label: 'Back Alley' },
+    abandoned_building:  { emoji: '🏚️',  min: 200,  max: 1000, deathChance: 0.40, label: 'Abandoned Building' },
+    bank_vault:          { emoji: '🏦',  min: 500,  max: 2500, deathChance: 0.55, label: 'Bank Vault' },
+    area_51:             { emoji: '👽',  min: 1000, max: 6000, deathChance: 0.70, label: 'Area 51' },
 };
 
 const DEATH_MESSAGES = [
@@ -68,7 +68,8 @@ module.exports = {
             const exp = cooldowns.search.get(cdKey) + COOLDOWN;
             if (now < exp) {
                 const left = exp - now;
-                const m = Math.floor(left / 60000), s = Math.ceil((left % 60000) / 1000);
+                const totalSecs = Math.ceil(left / 1000);
+                const m = Math.floor(totalSecs / 60), s = totalSecs % 60;
                 return interaction.reply({ content: `⏳ You already searched the **${loc.label}**. Try again in **${m}m ${s}s**.`, ephemeral: true });
             }
         }

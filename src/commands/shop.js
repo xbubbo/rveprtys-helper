@@ -26,7 +26,7 @@ module.exports = {
                 .setDescription('Buy an item')
                 .addStringOption(o =>
                     o.setName('item').setDescription('Item to buy').setRequired(true)
-                        .addChoices({ name: '🛟 Lifesaver  ($5,000)', value: 'lifesaver' })
+                        .addChoices({ name: 'Lifesaver ($5,000)', value: 'lifesaver' })
                 )
                 .addIntegerOption(o =>
                     o.setName('quantity').setDescription('How many to buy (default: 1)').setRequired(false).setMinValue(1).setMaxValue(99)

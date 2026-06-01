@@ -366,6 +366,7 @@ client.on('messageCreate', async message => {
         const targetId = message.mentions.users.first()?.id;
         const amount = parseInt(args[1]);
         if (!targetId || !amount || amount <= 0) return message.reply('❌ Usage: `?give @user <amount>`');
+        if (targetId === message.author.id) return message.reply("❌ You can't give money to yourself.");
         const user = await getUser(message.author.id, guildId);
         const receiver = await getUser(targetId, guildId);
         if (user.balance < amount) return message.reply('❌ Not enough money.');

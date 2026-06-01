@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getUser, anticheat } = require('../utils/economy');
-const Slave = require('../../models/Slave');
+const Slave = require('../models/slave');
 
 const COOLDOWN = 2 * 60 * 1000;
 const { formatNumber } = require('../utils/format');

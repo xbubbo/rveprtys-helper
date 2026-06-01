@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const User = require('../../models/User');
+const User = require('../models/user');
 
 const { formatNumber } = require('../utils/format');
 const PAGE_SIZE = 10;

@@ -1,4 +1,4 @@
-const Lottery = require('../../models/Lottery');
+const Lottery = require('../models/lottery');
 const { getUser } = require('./economy');
 
 const TICKET_PRICES = { hourly: 200, daily: 1000 };

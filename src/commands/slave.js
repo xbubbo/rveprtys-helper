@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getUser } = require('../utils/economy');
-const Slave = require('../../models/Slave');
+const Slave = require('../models/slave');
 const activeAuctions = require('../utils/activeAuctions');
 
 const { formatNumber } = require('../utils/format');

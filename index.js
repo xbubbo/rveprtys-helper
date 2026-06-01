@@ -12,8 +12,10 @@ const fetch = require('node-fetch');
 const mongoose = require('mongoose');
 const Stock = require('./models/Stock');
 const Slave = require('./models/Slave');
+const Lottery = require('./models/Lottery');
 const { getUser } = require('./src/utils/economy');
 const { seedMarket, COMPANIES } = require('./src/utils/market');
+const { drawLottery } = require('./src/utils/lottery');
 const Config = require('./models/Config');
 
 const PREFIX   = '?';
@@ -81,6 +83,11 @@ client.once('ready', () => {
         }
         console.log('Stock prices updated.');
     }, 30 * 60 * 1000);
+
+    setInterval(async () => {
+        const overdue = await Lottery.find({ drawAt: { $lte: new Date() } });
+        for (const lottery of overdue) await drawLottery(client, lottery);
+    }, 60 * 1000);
 });
 
 client.on('guildCreate', async guild => {
@@ -294,6 +301,19 @@ client.on('messageCreate', async message => {
     if (cmd === 'ostockfix')                      return run('owner', { getSubcommand: () => 'stockfix' });
     if (cmd === 'oremovestock')                   return run('owner', { getSubcommand: () => 'removestock',   getUser: n => n === 'user' ? message.mentions.users.first() : null, getString: n => n === 'ticker' ? args[1]?.toUpperCase() : null });
     if (cmd === 'setupmarket')                    return run('owner', { getSubcommand: () => 'setupmarket' });
+
+    if (cmd === 'lottery') {
+        const sub = args.shift()?.toLowerCase();
+        if (sub === 'buy') return run('lottery', {
+            getSubcommand: () => 'buy',
+            getString:  n => n === 'type'    ? args[0]        : null,
+            getInteger: n => n === 'tickets' ? parseInt(args[1]) : null,
+        });
+        return run('lottery', {
+            getSubcommand: () => 'info',
+            getString: n => n === 'type' ? args[0] : null,
+        });
+    }
 
     if (cmd === 'help') return run('help', {});
 });

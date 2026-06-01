@@ -18,7 +18,9 @@ function buildPage(users, page, mode) {
         if (mode === 'gambling')    { const net = u.gamblingWinnings ?? 0; return `${prefix} <@${u.userId}> - Net: **${net >= 0 ? '+' : ''}$${fmt(net)}**`; }
         if (mode === 'global')      return `${prefix} <@${u.userId}> - **$${fmt(u.balance + u.bank)}**`;
         if (mode === 'global-bank') return `${prefix} <@${u.userId}> - Bank: **$${fmt(u.bank)}**`;
-        return `${prefix} <@${u.userId}> - Wallet: **$${fmt(u.balance)}** | Bank: **$${fmt(u.bank)}**`;
+        const first  = u.bank >= u.balance ? `Bank: **$${fmt(u.bank)}**` : `Wallet: **$${fmt(u.balance)}**`;
+        const second = u.bank >= u.balance ? `Wallet: **$${fmt(u.balance)}**` : `Bank: **$${fmt(u.bank)}**`;
+        return `${prefix} <@${u.userId}> - ${first} | ${second}`;
     });
 
     const titles = {
@@ -74,13 +76,19 @@ module.exports = {
             else                        allGlobal.sort((a, b) => b.bank - a.bank);
             allUsers.length = 0;
             allUsers.push(...allGlobal);
-        } else if (mode === 'bank')         allUsers.sort((a, b) => b.bank - a.bank);
-        else if (mode === 'wallet')          allUsers.sort((a, b) => b.balance - a.balance);
-        else if (mode === 'gambling') {
+        } else if (mode === 'bank') {
+            allUsers.splice(0, allUsers.length, ...allUsers.filter(u => u.bank > 0));
+            allUsers.sort((a, b) => b.bank - a.bank);
+        } else if (mode === 'wallet') {
+            allUsers.splice(0, allUsers.length, ...allUsers.filter(u => u.balance > 0));
+            allUsers.sort((a, b) => b.balance - a.balance);
+        } else if (mode === 'gambling') {
             allUsers.splice(0, allUsers.length, ...allUsers.filter(u => u.gamblingWinnings != null && u.gamblingWinnings !== 0));
             allUsers.sort((a, b) => (b.gamblingWinnings ?? 0) - (a.gamblingWinnings ?? 0));
+        } else {
+            allUsers.splice(0, allUsers.length, ...allUsers.filter(u => u.balance > 0 || u.bank > 0));
+            allUsers.sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank));
         }
-        else                                 allUsers.sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank));
 
         let page = 1;
         const { embed, components, totalPages } = buildPage(allUsers, page, mode);

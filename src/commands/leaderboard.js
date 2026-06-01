@@ -76,7 +76,10 @@ module.exports = {
             allUsers.push(...allGlobal);
         } else if (mode === 'bank')         allUsers.sort((a, b) => b.bank - a.bank);
         else if (mode === 'wallet')          allUsers.sort((a, b) => b.balance - a.balance);
-        else if (mode === 'gambling')        allUsers.sort((a, b) => (b.gamblingWinnings ?? 0) - (a.gamblingWinnings ?? 0));
+        else if (mode === 'gambling') {
+            allUsers.splice(0, allUsers.length, ...allUsers.filter(u => u.gamblingWinnings != null && u.gamblingWinnings !== 0));
+            allUsers.sort((a, b) => (b.gamblingWinnings ?? 0) - (a.gamblingWinnings ?? 0));
+        }
         else                                 allUsers.sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank));
 
         let page = 1;

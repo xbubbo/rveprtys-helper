@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getUser } = require('../utils/economy');
 
-const { formatNumber } = require('../utils/format');
+const { formatNumber, parseAmount } = require('../utils/format');
 const DEATH_CHANCE = 0.000001;
 
 module.exports = {
@@ -36,7 +36,7 @@ module.exports = {
             if (raw === 'all') {
                 betAmount = Math.min(challenger.balance, opponentEcon.balance);
             } else {
-                betAmount = parseFloat(raw);
+                betAmount = parseAmount(betStr);
                 if (isNaN(betAmount) || betAmount <= 0) return interaction.reply({ content: '❌ Invalid bet amount.', ephemeral: true });
             }
             if (betAmount <= 0) return interaction.reply({ content: "❌ Neither of you have anything to bet.", ephemeral: true });

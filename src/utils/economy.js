@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const User = require('../../models/User');
+const User = require('../models/user');
 
 const MAX_BALANCE = 999_999_999_999_999;
 

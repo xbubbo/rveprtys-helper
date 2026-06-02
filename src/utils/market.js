@@ -1,4 +1,4 @@
-const Stock = require('../../models/Stock');
+const Stock = require('../models/stock');
 
 const COMPANIES = [
     { ticker: 'VLR',  name: 'Velera Inc',          price: 142.50 },

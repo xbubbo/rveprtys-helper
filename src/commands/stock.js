@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const Stock = require('../../models/Stock');
-const Portfolio = require('../../models/Portfolio');
-const User = require('../../models/User');
+const Stock = require('../models/stock');
+const Portfolio = require('../models/portfolio');
+const User = require('../models/user');
 
 const { formatNumber } = require('../utils/format');
 

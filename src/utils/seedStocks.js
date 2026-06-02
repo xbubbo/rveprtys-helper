@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Stock = require('../../models/Stock');
+const Stock = require('../models/stock');
 require('dotenv').config();
 
 const companies = [

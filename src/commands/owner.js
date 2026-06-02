@@ -4,9 +4,9 @@ const {
 const { getUser } = require('../utils/economy');
 const { seedMarket, COMPANIES } = require('../utils/market');
 const cooldowns = require('../utils/cooldowns');
-const User = require('../../models/User');
-const Stock = require('../../models/Stock');
-const Portfolio = require('../../models/Portfolio');
+const User = require('../models/user');
+const Stock = require('../models/stock');
+const Portfolio = require('../models/portfolio');
 
 const { OWNER_ID, isAdmin } = require('../utils/auth');
 const { formatNumber } = require('../utils/format');

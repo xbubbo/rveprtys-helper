@@ -1,22 +1,23 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getUser } = require('../utils/economy');
-const Portfolio = require('../models/Portfolio');
-const Slave = require('../models/Slave');
+const Portfolio = require('../models/portfolio');
+const Slave = require('../models/slave');
 
 const REQUIRED = 1_000_000;
 const MAX_PRESTIGE = 10;
+
 const PRESTIGE_BADGES = ['', '★', '★★', '★★★', '✦', '✦✦', '✦✦✦', '◆', '◆◆', '◆◆◆', '👑'];
 const PRESTIGE_COLORS = [
     0x2b2d31, 0xcd7f32, 0xc0c0c0, 0xFFD700, 0x00FF99,
     0x00ccff, 0xff66ff, 0xff4444, 0xff8800, 0xffffff, 0xFFD700
 ];
 
-async function handlePrestige(userId, guildId, replyFn, confirmFn) {
+async function handlePrestige(userId, guildId, interaction) {
     const user = await getUser(userId, guildId);
     const totalWealth = user.balance + user.bank;
 
     if (user.prestige >= MAX_PRESTIGE) {
-        return replyFn({
+        return interaction.reply({
             embeds: [new EmbedBuilder()
                 .setTitle(`${PRESTIGE_BADGES[MAX_PRESTIGE]} Max Prestige Reached`)
                 .setDescription('You have reached the maximum prestige level. You are a legend.')
@@ -26,7 +27,7 @@ async function handlePrestige(userId, guildId, replyFn, confirmFn) {
 
     if (totalWealth < REQUIRED) {
         const needed = REQUIRED - totalWealth;
-        return replyFn({
+        return interaction.reply({
             embeds: [new EmbedBuilder()
                 .setTitle('Prestige')
                 .setDescription(
@@ -42,7 +43,7 @@ async function handlePrestige(userId, guildId, replyFn, confirmFn) {
     const newMultiplier = parseFloat((1 + nextPrestige * 0.25).toFixed(2));
     const badge = PRESTIGE_BADGES[nextPrestige];
 
-    await replyFn({
+    await interaction.reply({
         embeds: [new EmbedBuilder()
             .setTitle('Prestige Confirmation')
             .setDescription(
@@ -57,11 +58,26 @@ async function handlePrestige(userId, guildId, replyFn, confirmFn) {
             .setColor(PRESTIGE_COLORS[nextPrestige])]
     });
 
-    const confirmed = await confirmFn();
+    const confirmed = await new Promise(resolve => {
+        const filter = m =>
+            m.author.id === userId &&
+            m.content.toLowerCase() === 'confirm' &&
+            m.channel.id === interaction.channel.id;
+
+        const collector = interaction.channel.createMessageCollector({
+            filter, time: 30000, max: 1
+        });
+
+        collector.on('collect', () => resolve(true));
+        collector.on('end', (_, reason) => {
+            if (reason === 'time') resolve(false);
+        });
+    });
+
     if (!confirmed) {
-        return replyFn({
+        return interaction.followUp({
             embeds: [new EmbedBuilder()
-                .setDescription('Prestige cancelled.')
+                .setDescription('Prestige cancelled — confirmation timed out.')
                 .setColor(0x2b2d31)]
         });
     }
@@ -77,7 +93,7 @@ async function handlePrestige(userId, guildId, replyFn, confirmFn) {
     await Slave.updateMany({ userId, guildId }, { ownerId: null, debt: 0, totalEarned: 0 });
     await Slave.updateMany({ ownerId: userId, guildId }, { ownerId: null, debt: 0, totalEarned: 0 });
 
-    return replyFn({
+    return interaction.followUp({
         embeds: [new EmbedBuilder()
             .setTitle(`${badge} Prestige ${nextPrestige} Achieved!`)
             .setDescription(
@@ -93,71 +109,9 @@ async function handlePrestige(userId, guildId, replyFn, confirmFn) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('prestige')
-        .setDescription('Reset everything and ascend to the next prestige level'),
+        .setDescription('Reset everything and ascend to the next prestige level for a permanent earn multiplier'),
 
-    // Slash command handler
     async execute(interaction) {
-        const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
-
-        let replied = false;
-        const replyFn = async (payload) => {
-            if (!replied) {
-                replied = true;
-                await interaction.reply(payload);
-            } else {
-                await interaction.followUp(payload);
-            }
-        };
-
-        const confirmFn = () => new Promise(resolve => {
-            const filter = m =>
-                m.author.id === userId &&
-                m.content.toLowerCase() === 'confirm' &&
-                m.channel.id === interaction.channel.id;
-
-            const collector = interaction.channel.createMessageCollector({
-                filter, time: 30000, max: 1
-            });
-
-            collector.on('collect', () => resolve(true));
-            collector.on('end', (collected, reason) => {
-                if (reason === 'time') resolve(false);
-            });
-        });
-
-        await handlePrestige(userId, guildId, replyFn, confirmFn);
-    },
-
-    // Prefix command handler — called from index.js
-    async executePrefix(message, guildId) {
-        const userId = message.author.id;
-        let firstReply = true;
-
-        const replyFn = async (payload) => {
-            if (firstReply) {
-                firstReply = false;
-                await message.reply(payload);
-            } else {
-                await message.channel.send(payload);
-            }
-        };
-
-        const confirmFn = () => new Promise(resolve => {
-            const filter = m =>
-                m.author.id === userId &&
-                m.content.toLowerCase() === 'confirm';
-
-            const collector = message.channel.createMessageCollector({
-                filter, time: 30000, max: 1
-            });
-
-            collector.on('collect', () => resolve(true));
-            collector.on('end', (collected, reason) => {
-                if (reason === 'time') resolve(false);
-            });
-        });
-
-        await handlePrestige(userId, guildId, replyFn, confirmFn);
+        await handlePrestige(interaction.user.id, interaction.guild.id, interaction);
     }
 };

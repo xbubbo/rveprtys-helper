@@ -77,7 +77,7 @@ async function handlePrestige(userId, guildId, interaction) {
     if (!confirmed) {
         return interaction.followUp({
             embeds: [new EmbedBuilder()
-                .setDescription('Prestige cancelled — confirmation timed out.')
+                .setDescription('Prestige cancelled - confirmation timed out.')
                 .setColor(0x2b2d31)]
         });
     }
@@ -99,7 +99,7 @@ async function handlePrestige(userId, guildId, interaction) {
             .setDescription(
                 `You have ascended to **Prestige ${nextPrestige}**.\n\n` +
                 `Everything has been reset. Time to grind again.\n\n` +
-                `**Your multiplier:** ${newMultiplier}x — all \`?work\` and \`?daily\` earnings are boosted.`
+                `**Your multiplier:** ${newMultiplier}x - all \`?work\` and \`?daily\` earnings are boosted.`
             )
             .setColor(PRESTIGE_COLORS[nextPrestige])
             .setFooter({ text: `Prestige ${nextPrestige}/${MAX_PRESTIGE}` })]

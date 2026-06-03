@@ -91,7 +91,7 @@ module.exports = {
                     return interaction.reply({
                         embeds: [new EmbedBuilder()
                             .setTitle('You Are Free!')
-                            .setDescription(`You worked and earned **$${formatNumber(amount)}** — your debt is fully paid off!`)
+                            .setDescription(`You worked and earned **$${formatNumber(amount)}** - your debt is fully paid off!`)
                             .setColor(0x00FF99)]
                     });
                 }
@@ -110,7 +110,7 @@ module.exports = {
                 return interaction.reply({
                     embeds: [new EmbedBuilder()
                         .setTitle('Work Complete')
-                        .setDescription(`You earned **$${formatNumber(amount)}** — but it went to your owner <@${slave.ownerId}>.`)
+                        .setDescription(`You earned **$${formatNumber(amount)}** - but it went to your owner <@${slave.ownerId}>.`)
                         .addFields({ name: 'Debt Remaining', value: `$${formatNumber(slave.debt)}`, inline: true })
                         .setColor(0xFF4500)
                         .setFooter({ text: 'Keep working to pay off your debt!' })]
@@ -149,12 +149,12 @@ module.exports = {
                 else if (!meetsPrestige) status = `❌ Need Prestige ${job.requiresPrestige}`;
                 else status = '✓ Available';
 
-                return `**Tier ${job.tier} — ${job.title}**\nMultiplier: x${job.multiplier} | ${status}`;
+                return `**Tier ${job.tier} - ${job.title}**\nMultiplier: x${job.multiplier} | ${status}`;
             }).join('\n\n');
 
             return interaction.reply({
                 embeds: [new EmbedBuilder()
-                    .setTitle('Economic Bomb Industries — Job Board')
+                    .setTitle('Economic Bomb Industries - Job Board')
                     .setDescription(
                         (currentJob
                             ? `**Current Job:** ${currentJob.title} (x${currentJob.multiplier} multiplier)\n\n`

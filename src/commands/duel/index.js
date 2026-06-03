@@ -2,6 +2,8 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const { getUser } = require('../../utils/economy');
 const { formatNumber, parseAmount } = require('../../utils/format');
 
+const DEATH_CHANCE = 0.000001;
+
 const WIN_MSGS = [
     'landed the killing blow',
     'outmaneuvered their opponent',
@@ -64,8 +66,8 @@ module.exports = {
                 .setColor(0xFFD700)
                 .setFooter({ text: 'Expires in 60 seconds' })],
             components: [new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('duel_accept').setLabel('Accept').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId('duel_decline').setLabel('Decline').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('duel_accept').setLabel('⚔️ Accept').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId('duel_decline').setLabel('🏳️ Decline').setStyle(ButtonStyle.Danger),
             )],
             fetchReply: true,
         });
@@ -95,6 +97,22 @@ module.exports = {
                     return i.update({ embeds: [new EmbedBuilder().setTitle('Duel Cancelled').setDescription(`<@${challenger.id}> no longer has enough to cover the bet.`).setColor(0xff3333)], components: [] });
                 if (freshOpponent.balance < betAmount)
                     return i.update({ embeds: [new EmbedBuilder().setTitle('Duel Cancelled').setDescription(`<@${opponent.id}> no longer has enough to cover the bet.`).setColor(0xff3333)], components: [] });
+            }
+
+            if (Math.random() < DEATH_CHANCE) {
+                if (hasBet) {
+                    freshChallenger.balance = parseFloat((freshChallenger.balance - betAmount).toFixed(2));
+                    freshOpponent.balance   = parseFloat((freshOpponent.balance   - betAmount).toFixed(2));
+                    await freshChallenger.save();
+                    await freshOpponent.save();
+                }
+                return i.update({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('💀 Both Players Died')
+                        .setDescription(`${challenger.username} and ${opponent.username} somehow managed to kill each other.${hasBet ? `\n\nBoth lost **$${formatNumber(betAmount)}**.` : ''}`)
+                        .setColor(0x71717a)],
+                    components: [],
+                });
             }
 
             const winnerUser  = Math.random() < 0.5 ? challenger : opponent;

@@ -7,6 +7,8 @@ The emoji can stay in data objects (CRIMES, LOCATIONS, etc.) for embed use, but 
 Bad:  `{ name: '💳 Fraud', value: 'fraud' }`
 Good: `{ name: 'Fraud',    value: 'fraud' }`
 
+Emojis ARE allowed everywhere else: button labels, embed titles, embed descriptions, footer text, field names, etc. Only `addChoices` name fields are restricted.
+
 ## No em-dashes
 Never use em-dashes (—) anywhere in bot output, embed text, footers, or descriptions.
 Use a plain hyphen-minus (-) instead.

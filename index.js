@@ -69,7 +69,7 @@ for (const file of fs.readdirSync('./src/events').filter(f => f.endsWith('.js'))
 client.on('error', err => console.error('Client error:', err));
 process.on('unhandledRejection', err => console.error('Unhandled rejection:', err));
 
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log(`Logged in as ${client.user.tag}`);
 
     setInterval(async () => {

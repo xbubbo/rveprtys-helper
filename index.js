@@ -66,6 +66,9 @@ for (const file of fs.readdirSync('./src/events').filter(f => f.endsWith('.js'))
     client.on(event.name, (...args) => event.execute(...args, client));
 }
 
+client.on('error', err => console.error('Client error:', err));
+process.on('unhandledRejection', err => console.error('Unhandled rejection:', err));
+
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
 

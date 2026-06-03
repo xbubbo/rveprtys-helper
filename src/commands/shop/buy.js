@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
-const { ITEMS } = require('./items');
+const { ITEMS, ROD_TIERS } = require('./items');
 
 async function execute(interaction, user) {
     const key      = interaction.options.getString('item');
@@ -32,6 +32,11 @@ async function execute(interaction, user) {
     } else {
         if (!user.inventory) user.inventory = [];
         user.inventory.push({ item: key, quantity });
+    }
+
+    // Set rod durability when buying a new fishing rod
+    if (ROD_TIERS.includes(key) && item.durability) {
+        user.fishRodDurability = item.durability;
     }
 
     await user.save();

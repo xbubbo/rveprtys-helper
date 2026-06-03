@@ -20,13 +20,18 @@ module.exports = {
                     o.setName('item').setDescription('Item to buy').setRequired(true)
                         .addChoices(
                             // General
-                            { name: 'Lifesaver ($5,000)',                value: 'lifesaver'           },
-                            // Fishing
-                            { name: 'Basic Fishing Rod ($800)',          value: 'fishing_rod_basic'   },
-                            { name: 'Upgraded Fishing Rod ($4,000)',     value: 'fishing_rod_upgraded'},
-                            { name: 'Super Fishing Rod ($12,000)',       value: 'fishing_rod_super'   },
-                            { name: 'Fishing Bait ($150)',               value: 'fishing_bait'        },
-                            { name: 'Fishing Bucket ($1,500)',           value: 'fishing_bucket'      },
+                            { name: 'Lifesaver ($5,000)',                value: 'lifesaver'              },
+                            // Fishing - Rods
+                            { name: 'Wooden Rod ($150)',                 value: 'fishing_rod_wooden'     },
+                            { name: 'Basic Rod ($800)',                  value: 'fishing_rod_basic'      },
+                            { name: 'Upgraded Rod ($4,000)',             value: 'fishing_rod_upgraded'   },
+                            { name: 'Super Rod ($12,000)',               value: 'fishing_rod_super'      },
+                            { name: 'Fishing Bait ($150)',               value: 'fishing_bait'           },
+                            // Fishing - Buckets
+                            { name: 'Wooden Bucket ($100)',              value: 'bucket_wooden'          },
+                            { name: 'Iron Bucket ($600)',                value: 'bucket_iron'            },
+                            { name: 'Gold Bucket ($2,500)',              value: 'bucket_gold'            },
+                            { name: 'Diamond Bucket ($8,000)',           value: 'bucket_diamond'         },
                             // Mining
                             { name: 'Basic Pickaxe ($1,500)',            value: 'pickaxe_basic'       },
                             { name: 'Iron Pickaxe ($6,000)',             value: 'pickaxe_iron'        },

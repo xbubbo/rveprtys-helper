@@ -3,26 +3,33 @@ const PrefixRouter   = require('../utils/prefixRouter');
 const { parseAmount } = require('../utils/format');
 
 const SEARCH_MAP = {
-    couch: 'couch', behindthecouch: 'couch', behindcouch: 'couch',
-    car: 'car', abandonedcar: 'car',
-    house: 'house', emptyhouse: 'house',
-    park: 'park', localpark: 'park',
-    dumpster: 'dumpster',
-    street: 'street', darkstreet: 'street',
-    alley: 'alley', backalley: 'alley',
-    abandonedbuilding: 'abandoned_building', building: 'abandoned_building',
-    bankvault: 'bank_vault', vault: 'bank_vault',
-    area51: 'area_51', area: 'area_51',
+    couch:              ['couch', 'behindthecouch', 'behindcouch'],
+    car:                ['car', 'abandonedcar'],
+    house:              ['house', 'emptyhouse'],
+    park:               ['park', 'localpark'],
+    dumpster:           ['dumpster'],
+    street:             ['street', 'darkstreet'],
+    alley:              ['alley', 'backalley'],
+    abandoned_building: ['abandonedbuilding', 'building'],
+    bank_vault:         ['bankvault', 'vault'],
+    area_51:            ['area51', 'area'],
 };
 
 const CRIME_MAP = {
-    pickpocket: 'pickpocket', pick: 'pickpocket',
-    shoplift: 'shoplift', lift: 'shoplift',
-    carjack: 'carjack', jack: 'carjack',
-    mugging: 'mugging', mug: 'mugging',
-    fraud: 'fraud',
-    bankrobbery: 'bank_robbery', bankrob: 'bank_robbery', robbery: 'bank_robbery', rob: 'bank_robbery',
+    pickpocket:   ['pickpocket', 'pick'],
+    shoplift:     ['shoplift', 'lift'],
+    carjack:      ['carjack', 'jack'],
+    mugging:      ['mugging', 'mug'],
+    fraud:        ['fraud'],
+    bank_robbery: ['bankrobbery', 'bankrob', 'robbery', 'rob'],
 };
+
+function lookup(map, raw) {
+    for (const [canonical, aliases] of Object.entries(map)) {
+        if (aliases.includes(raw)) return canonical;
+    }
+    return null;
+}
 
 const router = new PrefixRouter();
 
@@ -157,7 +164,7 @@ router
     // Search (fuzzy location matching)
     .on('search', null, (args, msg, run) => {
         const raw = args.join('').toLowerCase().replace(/[\s_-]/g, '');
-        const loc = SEARCH_MAP[raw] ?? null;
+        const loc = lookup(SEARCH_MAP, raw);
         if (!loc) {
             const valid = 'couch, car, house, park, dumpster, street, alley, abandoned building, bank vault, area 51';
             return msg.reply({ embeds: [new EmbedBuilder()
@@ -171,7 +178,7 @@ router
     // Crime (fuzzy type matching)
     .on('crime', null, (args, msg, run) => {
         const raw  = args.join('').toLowerCase().replace(/[\s_-]/g, '');
-        const type = CRIME_MAP[raw] ?? null;
+        const type = lookup(CRIME_MAP, raw);
         if (!type) {
             const valid = 'pickpocket, shoplift, carjack, mugging, fraud, bank robbery';
             return msg.reply({ embeds: [new EmbedBuilder()

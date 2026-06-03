@@ -1,15 +1,15 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { getUser } = require('../../utils/economy');
 const { formatNumber } = require('../../utils/format');
+const { hasItem, consumeItem } = require('../../utils/inventory');
 const cooldowns = require('../../utils/cooldowns');
 
 const COOLDOWN = 30 * 60 * 1000;
 
 const TIERS = [
-    { min: 0,       label: 'Surface Mine', dist: { empty: 6, coal: 5, iron: 3, gold: 2, ruby: 0, diamond: 0, cavein: 0 } },
-    { min: 25000,   label: 'Cave',         dist: { empty: 4, coal: 4, iron: 3, gold: 2, ruby: 1, diamond: 0, cavein: 2 } },
-    { min: 100000,  label: 'Deep Cave',    dist: { empty: 2, coal: 3, iron: 3, gold: 3, ruby: 2, diamond: 1, cavein: 2 } },
-    { min: 500000,  label: 'Magma Core',   dist: { empty: 1, coal: 2, iron: 2, gold: 3, ruby: 3, diamond: 2, cavein: 3 } },
+    { min: 0,      label: 'Surface Mine', dist: { empty: 6, coal: 5, iron: 3, gold: 2, ruby: 0, diamond: 0, cavein: 0 } },
+    { min: 25000,  label: 'Cave',         dist: { empty: 4, coal: 4, iron: 3, gold: 2, ruby: 1, diamond: 0, cavein: 2 } },
+    { min: 100000, label: 'Deep Cave',    dist: { empty: 2, coal: 3, iron: 3, gold: 3, ruby: 2, diamond: 1, cavein: 2 } },
+    { min: 500000, label: 'Magma Core',   dist: { empty: 1, coal: 2, iron: 2, gold: 3, ruby: 3, diamond: 2, cavein: 3 } },
 ];
 
 const ORES = {
@@ -24,15 +24,17 @@ const ORES = {
 
 function getTier(totalWealth) {
     let tier = TIERS[0];
-    for (const t of TIERS) {
-        if (totalWealth >= t.min) tier = t;
-    }
+    for (const t of TIERS) { if (totalWealth >= t.min) tier = t; }
     return tier;
 }
 
-function rand(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+function getPickaxeMultiplier(user) {
+    if (hasItem(user, 'pickaxe_diamond')) return 1.45;
+    if (hasItem(user, 'pickaxe_iron'))    return 1.20;
+    return 1.0;
 }
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 function buildTiles(dist) {
     const tiles = [];
@@ -60,14 +62,39 @@ async function execute(interaction, user) {
     }
     cooldowns.mine.set(cdKey, now);
 
-    const totalWealth = user.balance + user.bank;
-    const tier        = getTier(totalWealth);
-    const nextTier    = TIERS[TIERS.indexOf(tier) + 1];
-    const tiles       = buildTiles(tier.dist);
-    const revealed    = Array(16).fill(false);
-    let earned        = 0;
-    let caveins       = 0;
-    let gameOver      = false;
+    const totalWealth   = user.balance + user.bank;
+    const tier          = getTier(totalWealth);
+    const nextTier      = TIERS[TIERS.indexOf(tier) + 1];
+    const pickMulti     = getPickaxeMultiplier(user);
+    const hasBackpack   = hasItem(user, 'mining_backpack');
+    const caveinLoss    = hasBackpack ? 0.10 : 0.25;
+
+    // Consume bomb if present - auto-reveals 3 safe tiles
+    const useBomb   = consumeItem(user, 'mining_bomb');
+    if (useBomb) await user.save();
+
+    const tiles    = buildTiles(tier.dist);
+    const revealed = Array(16).fill(false);
+    let earned     = 0;
+    let caveins    = 0;
+    let gameOver   = false;
+
+    // Auto-reveal 3 safe tiles if bomb used
+    if (useBomb) {
+        const safeTileIndices = tiles
+            .map((t, i) => ({ t, i }))
+            .filter(({ t }) => t !== 'empty' && t !== 'cavein' && ORES[t].max > 0)
+            .map(({ i }) => i);
+        const toReveal = safeTileIndices.sort(() => Math.random() - 0.5).slice(0, 3);
+        for (const idx of toReveal) {
+            revealed[idx] = true;
+            const ore = ORES[tiles[idx]];
+            if (ore.max > 0) earned += Math.floor(rand(ore.min, ore.max) * pickMulti);
+        }
+    }
+
+    const pickName = hasItem(user, 'pickaxe_diamond') ? 'Diamond Pickaxe' : hasItem(user, 'pickaxe_iron') ? 'Iron Pickaxe' : 'Basic Pickaxe';
+    const extras   = [pickName, hasBackpack ? '🎒 Backpack' : null, useBomb ? '💥 Bomb used' : null].filter(Boolean).join(' • ');
 
     const buildGrid = (done = false) => {
         const rows = [];
@@ -99,27 +126,14 @@ async function execute(interaction, user) {
     };
 
     const mineEmbed = (state = 'mining') => {
-        if (state === 'mining') return new EmbedBuilder()
-            .setTitle(`Mining - ${tier.label}`)
-            .setDescription(
-                `Ore found: **$${formatNumber(earned)}**` +
-                (caveins > 0 ? ` | Cave-ins: **${caveins}** (-25% each)` : '') +
-                '\n\nClick tiles to mine. Cash out anytime.' +
-                (nextTier ? `\n\n*Unlock **${nextTier.label}** at $${formatNumber(nextTier.min)} total wealth*` : '')
-            )
-            .setColor(0x8B4513);
-        if (state === 'cashout') return new EmbedBuilder()
-            .setTitle(`Mining Complete - ${tier.label}`)
-            .setDescription(`You hauled **$${formatNumber(earned)}** worth of ore out of the ${tier.label}.`)
-            .setColor(0x00cc44);
-        if (state === 'cleared') return new EmbedBuilder()
-            .setTitle(`Mine Cleared! - ${tier.label}`)
-            .setDescription(`You mined every ore vein in the ${tier.label}!\nTotal haul: **$${formatNumber(earned)}**`)
-            .setColor(0xFFD700);
-        if (state === 'timeout') return new EmbedBuilder()
-            .setTitle(`Session Expired - ${tier.label}`)
-            .setDescription(`Mining session timed out. Ore collected: **$${formatNumber(earned)}**`)
-            .setColor(0x71717a);
+        const base = `Ore found: **$${formatNumber(earned)}**` +
+            (caveins > 0 ? ` | Cave-ins: **${caveins}** (-${Math.round(caveinLoss * 100)}% each)` : '') +
+            `\n*${extras}*` +
+            (nextTier ? `\n\n*Unlock **${nextTier.label}** at $${formatNumber(nextTier.min)} total wealth*` : '');
+        if (state === 'mining')  return new EmbedBuilder().setTitle(`Mining - ${tier.label}`).setDescription(base + '\n\nClick tiles to mine. Cash out anytime.').setColor(0x8B4513);
+        if (state === 'cashout') return new EmbedBuilder().setTitle(`Mining Complete - ${tier.label}`).setDescription(`You hauled **$${formatNumber(earned)}** worth of ore.`).setColor(0x00cc44);
+        if (state === 'cleared') return new EmbedBuilder().setTitle(`Mine Cleared! - ${tier.label}`).setDescription(`Every vein mined! Total haul: **$${formatNumber(earned)}**`).setColor(0xFFD700);
+        if (state === 'timeout') return new EmbedBuilder().setTitle(`Session Expired - ${tier.label}`).setDescription(`Timed out. Ore collected: **$${formatNumber(earned)}**`).setColor(0x71717a);
     };
 
     const finish = async (state, j = null) => {
@@ -132,9 +146,8 @@ async function execute(interaction, user) {
             if (j) await j.update({ embeds: [embed], components: buildGrid(true) });
             else await msg.edit({ embeds: [embed], components: buildGrid(true) }).catch(() => {});
         } else {
-            const embed = mineEmbed(state);
-            if (j) await j.update({ embeds: [embed], components: buildGrid(true) });
-            else await msg.edit({ embeds: [embed], components: buildGrid(true) }).catch(() => {});
+            if (j) await j.update({ embeds: [mineEmbed(state)], components: buildGrid(true) });
+            else await msg.edit({ embeds: [mineEmbed(state)], components: buildGrid(true) }).catch(() => {});
         }
     };
 
@@ -156,13 +169,13 @@ async function execute(interaction, user) {
         const type = tiles[idx];
         if (type === 'cavein') {
             caveins++;
-            earned = Math.max(0, Math.floor(earned * 0.75));
+            earned = Math.max(0, Math.floor(earned * (1 - caveinLoss)));
             await j.update({ embeds: [mineEmbed()], components: buildGrid() });
             return;
         }
 
         const ore = ORES[type];
-        if (ore.max > 0) earned += rand(ore.min, ore.max);
+        if (ore.max > 0) earned += Math.floor(rand(ore.min, ore.max) * pickMulti);
 
         const allMined = tiles.every((t, i) => t === 'empty' || t === 'cavein' || revealed[i]);
         if (allMined) { await finish('cleared', j); return; }
@@ -170,9 +183,7 @@ async function execute(interaction, user) {
         await j.update({ embeds: [mineEmbed()], components: buildGrid() });
     });
 
-    gameCollector.on('end', async (_, reason) => {
-        if (!gameOver) await finish('timeout');
-    });
+    gameCollector.on('end', async (_, reason) => { if (!gameOver) await finish('timeout'); });
 }
 
 module.exports = { execute, TIERS, COOLDOWN };

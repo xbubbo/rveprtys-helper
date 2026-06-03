@@ -18,7 +18,28 @@ module.exports = {
                 .setDescription('Buy an item')
                 .addStringOption(o =>
                     o.setName('item').setDescription('Item to buy').setRequired(true)
-                        .addChoices({ name: 'Lifesaver ($5,000)', value: 'lifesaver' })
+                        .addChoices(
+                            // General
+                            { name: 'Lifesaver ($5,000)',                value: 'lifesaver'           },
+                            // Fishing
+                            { name: 'Basic Fishing Rod ($800)',          value: 'fishing_rod_basic'   },
+                            { name: 'Upgraded Fishing Rod ($4,000)',     value: 'fishing_rod_upgraded'},
+                            { name: 'Super Fishing Rod ($12,000)',       value: 'fishing_rod_super'   },
+                            { name: 'Fishing Bait ($150)',               value: 'fishing_bait'        },
+                            { name: 'Fishing Bucket ($1,500)',           value: 'fishing_bucket'      },
+                            // Mining
+                            { name: 'Basic Pickaxe ($1,500)',            value: 'pickaxe_basic'       },
+                            { name: 'Iron Pickaxe ($6,000)',             value: 'pickaxe_iron'        },
+                            { name: 'Diamond Pickaxe ($20,000)',         value: 'pickaxe_diamond'     },
+                            { name: 'Mining Backpack ($3,500)',          value: 'mining_backpack'     },
+                            { name: 'Mining Bomb ($2,500)',              value: 'mining_bomb'         },
+                            // Streaming
+                            { name: 'Keyboard & Mouse ($1,000)',         value: 'keyboard_mouse'      },
+                            { name: 'Camera ($4,000)',                   value: 'camera'              },
+                            { name: 'Ring Light ($2,500)',               value: 'ring_light'          },
+                            { name: 'Microphone ($7,000)',               value: 'microphone'          },
+                            { name: 'Dedicated Server ($18,000)',        value: 'dedicated_server'    },
+                        )
                 )
                 .addIntegerOption(o =>
                     o.setName('quantity').setDescription('How many to buy (default: 1)').setRequired(false).setMinValue(1).setMaxValue(99)

@@ -1,16 +1,18 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { formatNumber } = require('../../utils/format');
+const { hasItem, consumeItem } = require('../../utils/inventory');
 const cooldowns = require('../../utils/cooldowns');
 
 const COOLDOWN = 20 * 60 * 1000;
 
 const TIERS = [
-    { min: 0,       label: 'Pond',     location: 'pond'    },
-    { min: 10000,   label: 'River',    location: 'river'   },
-    { min: 50000,   label: 'Ocean',    location: 'ocean'   },
-    { min: 200000,  label: 'Deep Sea', location: 'deepsea' },
+    { min: 0,      label: 'Pond',     location: 'pond'    },
+    { min: 10000,  label: 'River',    location: 'river'   },
+    { min: 50000,  label: 'Ocean',    location: 'ocean'   },
+    { min: 200000, label: 'Deep Sea', location: 'deepsea' },
 ];
 
+// [name, minValue, maxValue, weight]
 const FISH = {
     pond: [
         ['a soggy boot',  0,      0,      10],
@@ -47,26 +49,29 @@ const FISH = {
 
 function getTier(totalWealth) {
     let tier = TIERS[0];
-    for (const t of TIERS) {
-        if (totalWealth >= t.min) tier = t;
-    }
+    for (const t of TIERS) { if (totalWealth >= t.min) tier = t; }
     return tier;
 }
 
-function pickFish(loc) {
-    const table = FISH[loc];
+function getRodSkip(user) {
+    if (hasItem(user, 'fishing_rod_super'))    return 2;
+    if (hasItem(user, 'fishing_rod_upgraded')) return 1;
+    return 0;
+}
+
+function pickFish(loc, skip, useBait) {
+    let table = [...FISH[loc]].slice(skip);
+    if (useBait && table.length > 1) {
+        // Bait: halve the weight of the worst remaining fish
+        table = table.map((f, i) => i === 0 ? [f[0], f[1], f[2], Math.floor(f[3] / 2)] : f);
+    }
     const total = table.reduce((a, f) => a + f[3], 0);
     let r = Math.random() * total;
-    for (const fish of table) {
-        r -= fish[3];
-        if (r <= 0) return fish;
-    }
+    for (const fish of table) { r -= fish[3]; if (r <= 0) return fish; }
     return table[table.length - 1];
 }
 
-function rand(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 async function execute(interaction, user) {
     const cdKey = `fish_${interaction.user.id}`;
@@ -85,12 +90,21 @@ async function execute(interaction, user) {
     const totalWealth = user.balance + user.bank;
     const tier        = getTier(totalWealth);
     const nextTier    = TIERS[TIERS.indexOf(tier) + 1];
+    const rodSkip     = getRodSkip(user);
+    const hasBucket   = hasItem(user, 'fishing_bucket');
+
+    // Consume bait if present
+    const useBait = consumeItem(user, 'fishing_bait');
+    if (useBait) await user.save();
+
+    const rodName = hasItem(user, 'fishing_rod_super') ? 'Super Rod' : hasItem(user, 'fishing_rod_upgraded') ? 'Upgraded Rod' : 'Basic Rod';
+    const extras  = [rodName, useBait ? '🪱 Bait used' : null, hasBucket ? '🪣 Bucket' : null].filter(Boolean).join(' • ');
 
     const msg = await interaction.reply({
         embeds: [new EmbedBuilder()
             .setTitle('🎣 Fishing')
             .setDescription(
-                `Casting your line at the **${tier.label}**...\n\nWaiting for a bite.` +
+                `Casting your line at the **${tier.label}**...\n\nWaiting for a bite.\n\n*${extras}*` +
                 (nextTier ? `\n\n*Unlock **${nextTier.label}** at $${formatNumber(nextTier.min)} total wealth*` : '')
             )
             .setColor(0x1e3a5f)],
@@ -119,7 +133,7 @@ async function execute(interaction, user) {
 
     collector.on('collect', async i => {
         reeled = true;
-        const fish  = pickFish(tier.location);
+        const fish  = pickFish(tier.location, rodSkip, useBait);
         const value = rand(fish[1], fish[2]);
 
         if (value === 0) {
@@ -132,13 +146,25 @@ async function execute(interaction, user) {
             });
         }
 
-        user.balance = parseFloat((user.balance + value).toFixed(2));
+        // Bucket: catch a second fish
+        let bonusValue = 0;
+        if (hasBucket) {
+            const bonus = pickFish(tier.location, rodSkip, false);
+            bonusValue  = rand(bonus[1], bonus[2]);
+        }
+
+        const total = value + bonusValue;
+        user.balance = parseFloat((user.balance + total).toFixed(2));
         await user.save();
+
+        const desc = hasBucket && bonusValue > 0
+            ? `You reeled in **${fish[0]}** worth **$${formatNumber(value)}**!\n🪣 Bucket bonus: **+$${formatNumber(bonusValue)}**`
+            : `You reeled in **${fish[0]}** worth **$${formatNumber(value)}**!`;
 
         return i.update({
             embeds: [new EmbedBuilder()
                 .setTitle('🎣 Nice catch!')
-                .setDescription(`You reeled in **${fish[0]}** worth **$${formatNumber(value)}**!`)
+                .setDescription(desc)
                 .addFields({ name: '💵 New Balance', value: `$${formatNumber(user.balance)}`, inline: true })
                 .setColor(0x00cc44)],
             components: [],

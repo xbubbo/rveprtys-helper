@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getUser, anticheat } = require('../../utils/economy');
 const Slave = require('../../models/slave');
 const { formatNumber } = require('../../utils/format');
+const { hasAnyItem, hasAllItems } = require('../../utils/inventory');
 const fishing   = require('./fishing');
 const mining    = require('./mining');
 const streaming = require('./streaming');
@@ -21,9 +22,27 @@ const CORPORATE_JOBS = [
 ];
 
 const ACTIVITY_JOBS = [
-    { id: 'fisher',   title: 'Fisher',   category: 'fishing',   requiresBalance: 0,      requiresPrestige: 0, description: 'Fishing mini-game. Better spots unlock as you earn more.' },
-    { id: 'miner',    title: 'Miner',    category: 'mining',    requiresBalance: 5_000,  requiresPrestige: 0, description: 'Mining mini-game. Deeper mines unlock as you earn more.' },
-    { id: 'streamer', title: 'Streamer', category: 'streaming', requiresBalance: 10_000, requiresPrestige: 0, description: 'Streaming mini-game. More categories unlock as you earn more.' },
+    {
+        id: 'fisher', title: 'Fisher', category: 'fishing',
+        requiresBalance: 0, requiresPrestige: 0,
+        description: 'Fishing mini-game. Better spots unlock as you earn more.',
+        requiresAnyItem: ['fishing_rod_basic', 'fishing_rod_upgraded', 'fishing_rod_super'],
+        itemHint: 'Requires any fishing rod from the shop.',
+    },
+    {
+        id: 'miner', title: 'Miner', category: 'mining',
+        requiresBalance: 5_000, requiresPrestige: 0,
+        description: 'Mining mini-game. Deeper mines unlock as you earn more.',
+        requiresAnyItem: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'],
+        itemHint: 'Requires any pickaxe from the shop.',
+    },
+    {
+        id: 'streamer', title: 'Streamer', category: 'streaming',
+        requiresBalance: 10_000, requiresPrestige: 0,
+        description: 'Streaming mini-game. More categories unlock as you earn more.',
+        requiresAllItems: ['keyboard_mouse', 'camera'],
+        itemHint: 'Requires Keyboard & Mouse and Camera from the shop.',
+    },
 ];
 
 const ACTIVITY_HANDLERS = { fisher: fishing, miner: mining, streamer: streaming };
@@ -131,7 +150,14 @@ module.exports = {
                 const isCurrent    = job.id === currentJobId;
                 const meetsBalance = totalWealth >= job.requiresBalance;
                 const meetsPres    = prestige >= job.requiresPrestige;
-                const status = isCurrent ? '✅ Current' : !meetsBalance ? `❌ Need $${formatNumber(job.requiresBalance)}` : !meetsPres ? `❌ Need Prestige ${job.requiresPrestige}` : '✓ Available';
+                const meetsItems   = job.requiresAnyItem ? hasAnyItem(user, job.requiresAnyItem)
+                                   : job.requiresAllItems ? hasAllItems(user, job.requiresAllItems) : true;
+                let status;
+                if (isCurrent)       status = '✅ Current';
+                else if (!meetsItems)   status = `❌ ${job.itemHint}`;
+                else if (!meetsBalance) status = `❌ Need $${formatNumber(job.requiresBalance)}`;
+                else if (!meetsPres)    status = `❌ Need Prestige ${job.requiresPrestige}`;
+                else                    status = '✓ Available';
                 return `**${job.title}** - ${job.description}\n${status}`;
             }).join('\n\n');
 
@@ -171,6 +197,12 @@ module.exports = {
                 embeds: [new EmbedBuilder().setTitle('Application Denied').setDescription(`**${job.title}** requires **Prestige ${job.requiresPrestige}**.\nYou are Prestige **${prestige}**.`).setColor(0xff0000)],
                 ephemeral: true,
             });
+
+            const actJob = getActivityJob(jobId);
+            if (actJob?.requiresAnyItem && !hasAnyItem(user, actJob.requiresAnyItem))
+                return interaction.reply({ content: `❌ ${actJob.itemHint}`, ephemeral: true });
+            if (actJob?.requiresAllItems && !hasAllItems(user, actJob.requiresAllItems))
+                return interaction.reply({ content: `❌ ${actJob.itemHint}`, ephemeral: true });
 
             user.jobId         = job.id;
             user.jobMultiplier = job.multiplier ?? 1;

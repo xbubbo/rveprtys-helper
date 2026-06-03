@@ -1,8 +1,9 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { formatNumber } = require('../../utils/format');
+const { hasItem } = require('../../utils/inventory');
 const cooldowns = require('../../utils/cooldowns');
 
-const COOLDOWN = 45 * 60 * 1000;
+const COOLDOWN    = 45 * 60 * 1000;
 const MAX_SEGMENTS = 20;
 
 const TIERS = [
@@ -19,36 +20,38 @@ const CATEGORIES = {
     irl:     { label: 'IRL',         baseMin: 25,  baseMax: 120, growthMin: 0.10, growthMax: 0.30, eventChance: 0.30 },
 };
 
-const EVENTS = [
-    { id: 'raid',  weight: 15, label: 'Incoming Raid!',            fn: v => v + Math.floor(Math.random() * 1500 + 200) },
-    { id: 'viral', weight: 5,  label: 'A clip went viral!',        fn: v => Math.floor(v * (1.5 + Math.random() * 1.5)) },
-    { id: 'tech',  weight: 20, label: 'Technical difficulties...',  fn: v => v },
-    { id: 'drama', weight: 12, label: 'Drama in chat...',           fn: v => Math.floor(v * (0.55 + Math.random() * 0.15)) },
-    { id: 'isp',   weight: 6,  label: 'ISP outage!',               fn: () => -1 },
-];
-
 function getTier(totalWealth) {
     let tier = TIERS[0];
-    for (const t of TIERS) {
-        if (totalWealth >= t.min) tier = t;
-    }
+    for (const t of TIERS) { if (totalWealth >= t.min) tier = t; }
     return tier;
 }
 
-function rollEvent(chance) {
-    if (Math.random() > chance) return null;
-    const total = EVENTS.reduce((a, e) => a + e.weight, 0);
-    let r = Math.random() * total;
-    for (const e of EVENTS) {
-        r -= e.weight;
-        if (r <= 0) return e;
-    }
-    return EVENTS[EVENTS.length - 1];
+function buildEvents(user) {
+    const hasMic    = hasItem(user, 'microphone');
+    const hasServer = hasItem(user, 'dedicated_server');
+    return [
+        { id: 'raid',  weight: 15, label: 'Incoming Raid!',           fn: v => v + Math.floor(Math.random() * 1500 + 200) },
+        { id: 'viral', weight: 5,  label: 'A clip went viral!',       fn: v => Math.floor(v * (1.5 + Math.random() * 1.5)) },
+        { id: 'tech',  weight: 20, label: 'Technical difficulties...', fn: v => v },
+        {
+            id: 'drama', weight: 12, label: 'Drama in chat...',
+            fn: hasMic
+                ? v => Math.floor(v * (0.80 + Math.random() * 0.10))  // mic: -10-20%
+                : v => Math.floor(v * (0.55 + Math.random() * 0.15)), // no mic: -30-45%
+        },
+        { id: 'isp', weight: hasServer ? 1.5 : 6, label: 'ISP outage!', fn: () => -1 },
+    ];
 }
 
-function rand(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+function rollEvent(events, chance) {
+    if (Math.random() > chance) return null;
+    const total = events.reduce((a, e) => a + e.weight, 0);
+    let r = Math.random() * total;
+    for (const e of events) { r -= e.weight; if (r <= 0) return e; }
+    return events[events.length - 1];
 }
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 async function execute(interaction, user) {
     const cdKey = `stream_${interaction.user.id}`;
@@ -64,14 +67,28 @@ async function execute(interaction, user) {
     }
     cooldowns.stream.set(cdKey, now);
 
-    const totalWealth  = user.balance + user.bank;
-    const tier         = getTier(totalWealth);
-    const nextTier     = TIERS[TIERS.indexOf(tier) + 1];
-    const available    = tier.categories;
-    const catId        = available[Math.floor(Math.random() * available.length)];
-    const config       = CATEGORIES[catId];
+    const totalWealth = user.balance + user.bank;
+    const tier        = getTier(totalWealth);
+    const nextTier    = TIERS[TIERS.indexOf(tier) + 1];
+    const available   = tier.categories;
+    const catId       = available[Math.floor(Math.random() * available.length)];
+    const base        = CATEGORIES[catId];
+    const hasLight    = hasItem(user, 'ring_light');
+    const hasMic      = hasItem(user, 'microphone');
+    const hasServer   = hasItem(user, 'dedicated_server');
+    const events      = buildEvents(user);
 
-    let viewers   = rand(config.baseMin, config.baseMax);
+    // Apply ring light growth bonus
+    const growthMin = base.growthMin + (hasLight ? 0.10 : 0);
+    const growthMax = base.growthMax + (hasLight ? 0.10 : 0);
+
+    const equipment = [
+        hasLight  ? '💡 Ring Light'        : null,
+        hasMic    ? '🎙️ Microphone'        : null,
+        hasServer ? '🖥️ Dedicated Server'  : null,
+    ].filter(Boolean);
+
+    let viewers   = rand(base.baseMin, base.baseMax);
     let segment   = 0;
     let lastEvent = null;
     let ended     = false;
@@ -79,12 +96,13 @@ async function execute(interaction, user) {
     const payout = () => Math.floor(viewers * 1.5);
 
     const streamEmbed = () => new EmbedBuilder()
-        .setTitle(`Streaming - ${config.label}`)
+        .setTitle(`Streaming - ${base.label}`)
         .setDescription([
             `**${formatNumber(viewers)}** viewers watching`,
             `Payout if you stop now: **$${formatNumber(payout())}**`,
             segment > 0 ? `Segment ${segment}/${MAX_SEGMENTS}` : null,
             lastEvent ? `\n*${lastEvent.label}*` : null,
+            equipment.length ? `\n${equipment.join(' • ')}` : null,
             nextTier ? `\n*Unlock more categories at $${formatNumber(nextTier.min)} total wealth*` : null,
         ].filter(Boolean).join('\n'))
         .setColor(viewers >= 1000 ? 0x9b59b6 : viewers >= 200 ? 0x6441a5 : 0x4a3281);
@@ -108,7 +126,7 @@ async function execute(interaction, user) {
         user.balance = parseFloat((user.balance + earnings).toFixed(2));
         await user.save();
         const embed = new EmbedBuilder()
-            .setTitle(`Stream Ended - ${config.label}`)
+            .setTitle(`Stream Ended - ${base.label}`)
             .setDescription(`**${formatNumber(viewers)}** viewers | **${segment}** segments\nYou earned **$${formatNumber(earnings)}**!`)
             .addFields({ name: '💵 New Balance', value: `$${formatNumber(user.balance)}`, inline: true })
             .setColor(0x00cc44);
@@ -122,7 +140,7 @@ async function execute(interaction, user) {
         if (j.customId !== 'stream_next') return;
 
         segment++;
-        const event = rollEvent(config.eventChance);
+        const event = rollEvent(events, base.eventChance);
         lastEvent   = event ?? null;
 
         if (event) {
@@ -144,7 +162,7 @@ async function execute(interaction, user) {
             }
             viewers = Math.max(1, next);
         } else {
-            const rate = config.growthMin + Math.random() * (config.growthMax - config.growthMin);
+            const rate = growthMin + Math.random() * (growthMax - growthMin);
             viewers = Math.max(1, Math.floor(viewers * (1 + rate)));
         }
 
@@ -152,9 +170,7 @@ async function execute(interaction, user) {
         await j.update({ embeds: [streamEmbed()], components: [streamButtons()] });
     });
 
-    collector.on('end', async (_, reason) => {
-        if (!ended) await finish();
-    });
+    collector.on('end', async (_, reason) => { if (!ended) await finish(); });
 }
 
 module.exports = { execute, TIERS, COOLDOWN };

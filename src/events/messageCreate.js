@@ -5,18 +5,20 @@ const { parseAmount } = require('../utils/format');
 const PREFIX = '?';
 
 const MODULE_MAP = {
-    work:        ['work'],
-    rob:         ['rob'],
-    coinflip:    ['coinflip', 'cf'],
-    dice:        ['dice'],
-    slots:       ['slots'],
-    duel:        ['duel'],
-    stocks:      ['stocks', 'stock', 'stocklist', 'buystock', 'sellstock', 'portfolio', 'port', 'stockhistory', 'sh'],
-    slave:       ['buy', 'sellslave', 'outbid', 'slave', 'slavepanel', 'slavelist'],
-    givemoney:   ['givemoney', 'give'],
-    deposit:     ['deposit', 'dep', 'bank'],
-    withdraw:    ['withdraw', 'with'],
-    leaderboard: ['leaderboard', 'lb', 'bankleaderboard', 'blb', 'gleaderboard', 'glb', 'gbankleaderboard', 'gblb']
+    work:          ['work', 'jobs', 'apply'],
+    rob:           ['rob'],
+    coinflip:      ['coinflip', 'cf'],
+    dice:          ['dice'],
+    slots:         ['slots'],
+    duel:          ['duel'],
+    stocks:        ['stocks', 'stock', 'stocklist', 'buystock', 'sellstock', 'portfolio', 'port', 'stockhistory', 'sh'],
+    slave:         ['buy', 'sellslave', 'outbid', 'slave', 'slavepanel', 'slavelist'],
+    givemoney:     ['givemoney', 'give'],
+    deposit:       ['deposit', 'dep', 'bank'],
+    withdraw:      ['withdraw', 'with'],
+    leaderboard:   ['leaderboard', 'lb', 'bankleaderboard', 'blb', 'gleaderboard', 'glb', 'gbankleaderboard', 'gblb'],
+    notifications: ['notifications'],
+    prestige:      ['prestige'],
 };
 
 const SEARCH_MAP = {
@@ -110,7 +112,9 @@ module.exports = {
         if (cmd === 'withdraw' || cmd === 'with')
             return run('bank', { getSubcommand: () => 'withdraw', getString: n => n === 'amount' ? args[0] : null });
 
-        if (cmd === 'work')  return run('work', {});
+        if (cmd === 'work')  return run('work', { getSubcommand: () => 'work' });
+        if (cmd === 'jobs')  return run('work', { getSubcommand: () => 'jobs' });
+        if (cmd === 'apply') return run('work', { getSubcommand: () => 'apply', getInteger: n => n === 'tier' ? parseInt(args[0]) : null });
         if (cmd === 'daily') return run('daily', {});
 
         if (cmd === 'givemoney' || cmd === 'give')
@@ -233,7 +237,9 @@ module.exports = {
         if (cmd === 'mines')                       return run('gamble', { getString: n => n === 'game' ? 'mines'     : null, getInteger: n => n === 'bet' ? parseAmount(args[0]) : null });
         if (cmd === 'baccarat' || cmd === 'bac')   return run('gamble', { getString: n => n === 'game' ? 'baccarat'  : null, getInteger: n => n === 'bet' ? parseAmount(args[0]) : null });
 
-        if (cmd === 'beg') return run('beg', {});
+        if (cmd === 'beg')           return run('beg', {});
+        if (cmd === 'prestige')      return run('prestige', {});
+        if (cmd === 'notifications') return run('notifications', {});
 
         if (cmd === 'shop') {
             const sub = args.shift()?.toLowerCase();

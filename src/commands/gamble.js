@@ -503,9 +503,20 @@ module.exports = {
 
         if (game === 'highlow') {
             await user.save();
+
+            const { started, msg } = await pregame(interaction, user, bet, {
+                title: '🃏 High / Low',
+                getEmbed: () => new EmbedBuilder()
+                    .setTitle('🃏 High / Low')
+                    .setDescription(`Bet: **$${formatNumber(bet)}**\n\nA card will be dealt when you start. Guess higher or lower to multiply your bet.`)
+                    .setColor(0x2b2d31),
+            });
+
+            if (!started) return;
+
             const deck = shuffledDeck();
             let currentCard = deck.pop();
-            let multiplier = 1;
+            let multiplier  = 1;
 
             const hlEmbed = (card, mult, extra = '') => new EmbedBuilder()
                 .setTitle('🃏 High / Low')
@@ -522,7 +533,7 @@ module.exports = {
                 new ButtonBuilder().setCustomId('hl_cash').setLabel(`Cash Out ($${formatNumber(parseFloat((bet * mult).toFixed(2)))})`).setStyle(ButtonStyle.Secondary)
             );
 
-            const msg = await interaction.reply({ embeds: [hlEmbed(currentCard, multiplier)], components: [hlButtons(multiplier)], fetchReply: true });
+            await msg.edit({ embeds: [hlEmbed(currentCard, multiplier)], components: [hlButtons(multiplier)] });
 
             const cashOut = async (i, mult, timedOut = false) => {
                 let payout = parseFloat((bet * mult).toFixed(2));
@@ -536,7 +547,7 @@ module.exports = {
                         : `Cashed out at **${mult.toFixed(2)}x**! You won **$${formatNumber(payout)}**!`)
                     .setColor(payout > bet ? 0x00ff00 : 0xffff00);
                 if (i) await i.update({ embeds: [embed], components: [] });
-                else await msg.edit({ embeds: [embed], components: [] }).catch(() => { });
+                else await msg.edit({ embeds: [embed], components: [] }).catch(() => {});
             };
 
             const collector = msg.createMessageComponentCollector({ filter: i => i.user.id === interaction.user.id, time: 60000 });
@@ -554,7 +565,7 @@ module.exports = {
                 }
                 const correct = i.customId === 'hl_high' ? nextRank > currRank : nextRank < currRank;
                 if (correct) {
-                    multiplier = parseFloat((multiplier * 1.8).toFixed(2));
+                    multiplier  = parseFloat((multiplier * 1.8).toFixed(2));
                     currentCard = nextCard;
                     await i.update({ embeds: [hlEmbed(currentCard, multiplier, `Correct! Keep going or cash out.`)], components: [hlButtons(multiplier)] });
                 } else {

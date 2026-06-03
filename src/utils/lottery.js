@@ -49,6 +49,12 @@ async function drawLottery(client, lottery) {
     const { EmbedBuilder } = require('discord.js');
     const label = lottery.type === 'hourly' ? 'Hourly' : 'Daily';
 
+    if (lottery.tickets.length === 0) {
+        lottery.drawAt = getNextDraw(lottery.type);
+        await lottery.save();
+        return;
+    }
+
     if (lottery.tickets.length < 2) {
         for (const t of lottery.tickets) {
             const u = await getUser(t.userId, lottery.guildId);

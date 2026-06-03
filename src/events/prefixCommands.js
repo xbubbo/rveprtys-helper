@@ -193,7 +193,7 @@ router
     // Misc
     .on('beg',           null,            (args, msg, run) => run('beg', {}))
     .on('prestige',      'prestige',      (args, msg, run) => run('prestige', {}))
-    .on('notifications', 'notifications', (args, msg, run) => run('notifications', {}))
+    .on(['settings', 'notifications'], 'settings', (args, msg, run) => run('settings', {}))
     .on('help',          null,            (args, msg, run) => run('help', {}));
 
 module.exports = router;

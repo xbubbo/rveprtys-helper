@@ -50,7 +50,7 @@ module.exports = {
                 },
                 {
                     name: 'Profile',
-                    value: '`/prestige` - reset and gain a permanent earn multiplier\n`/notifications` - toggle bot DMs',
+                    value: '`/prestige` - reset and gain a permanent earn multiplier\n`/settings` - toggle DMs and other preferences',
                     inline: false,
                 },
             )

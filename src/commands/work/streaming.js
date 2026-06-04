@@ -1,9 +1,12 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+    ContainerBuilder, TextDisplayBuilder, SeparatorBuilder,
+    ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
+} = require('discord.js');
 const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
 const cooldowns = require('../../utils/cooldowns');
 
-const COOLDOWN    = 45 * 60 * 1000;
+const COOLDOWN     = 45 * 60 * 1000;
 const MAX_SEGMENTS = 20;
 
 const TIERS = [
@@ -30,14 +33,14 @@ function buildEvents(user) {
     const hasMic    = hasItem(user, 'microphone');
     const hasServer = hasItem(user, 'dedicated_server');
     return [
-        { id: 'raid',  weight: 15, label: 'Incoming Raid!',           fn: v => v + Math.floor(Math.random() * 1500 + 200) },
-        { id: 'viral', weight: 5,  label: 'A clip went viral!',       fn: v => Math.floor(v * (1.5 + Math.random() * 1.5)) },
+        { id: 'raid',  weight: 15, label: 'Incoming Raid!',            fn: v => v + Math.floor(Math.random() * 1500 + 200) },
+        { id: 'viral', weight: 5,  label: 'A clip went viral!',        fn: v => Math.floor(v * (1.5 + Math.random() * 1.5)) },
         { id: 'tech',  weight: 20, label: 'Technical difficulties...', fn: v => v },
         {
             id: 'drama', weight: 12, label: 'Drama in chat...',
             fn: hasMic
-                ? v => Math.floor(v * (0.80 + Math.random() * 0.10))  // mic: -10-20%
-                : v => Math.floor(v * (0.55 + Math.random() * 0.15)), // no mic: -30-45%
+                ? v => Math.floor(v * (0.80 + Math.random() * 0.10))
+                : v => Math.floor(v * (0.55 + Math.random() * 0.15)),
         },
         { id: 'isp', weight: hasServer ? 1.5 : 6, label: 'ISP outage!', fn: () => -1 },
     ];
@@ -53,6 +56,20 @@ function rollEvent(events, chance) {
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
+function buildPanel(title, body, footer, buttons) {
+    const container = new ContainerBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${title}`))
+        .addSeparatorComponents(new SeparatorBuilder())
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
+    if (footer) {
+        container
+            .addSeparatorComponents(new SeparatorBuilder())
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${footer}`));
+    }
+    if (buttons) container.addActionRowComponents(buttons);
+    return { flags: MessageFlags.IsComponentsV2, components: [container] };
+}
+
 async function execute(interaction, user) {
     const cdKey = `stream_${interaction.user.id}`;
     const now   = Date.now();
@@ -60,9 +77,8 @@ async function execute(interaction, user) {
     if (cooldowns.stream.has(cdKey)) {
         const exp = cooldowns.stream.get(cdKey) + COOLDOWN;
         if (now < exp) {
-            const totalSecs = Math.ceil((exp - now) / 1000);
-            const m = Math.floor(totalSecs / 60), s = totalSecs % 60;
-            return interaction.reply({ content: `⏳ You need to rest before streaming again. Try in **${m}m ${s}s**.`, ephemeral: true });
+            const readyAt = Math.floor(exp / 1000);
+            return interaction.reply({ content: `You need to rest before streaming again. Ready <t:${readyAt}:R>.`, ephemeral: true });
         }
     }
     cooldowns.stream.set(cdKey, now);
@@ -78,14 +94,13 @@ async function execute(interaction, user) {
     const hasServer   = hasItem(user, 'dedicated_server');
     const events      = buildEvents(user);
 
-    // Apply ring light growth bonus
     const growthMin = base.growthMin + (hasLight ? 0.10 : 0);
     const growthMax = base.growthMax + (hasLight ? 0.10 : 0);
 
     const equipment = [
-        hasLight  ? '💡 Ring Light'        : null,
-        hasMic    ? '🎙️ Microphone'        : null,
-        hasServer ? '🖥️ Dedicated Server'  : null,
+        hasLight  ? 'Ring Light'       : null,
+        hasMic    ? 'Microphone'       : null,
+        hasServer ? 'Dedicated Server' : null,
     ].filter(Boolean);
 
     let viewers   = rand(base.baseMin, base.baseMax);
@@ -95,43 +110,49 @@ async function execute(interaction, user) {
 
     const payout = () => Math.floor(viewers * 1.5);
 
-    const streamEmbed = () => new EmbedBuilder()
-        .setTitle(`Streaming - ${base.label}`)
-        .setDescription([
-            `**${formatNumber(viewers)}** viewers watching`,
-            `Payout if you stop now: **$${formatNumber(payout())}**`,
-            segment > 0 ? `Segment ${segment}/${MAX_SEGMENTS}` : null,
-            lastEvent ? `\n*${lastEvent.label}*` : null,
-            equipment.length ? `\n${equipment.join(' • ')}` : null,
-            nextTier ? `\n*Unlock more categories at $${formatNumber(nextTier.min)} total wealth*` : null,
-        ].filter(Boolean).join('\n'))
-        .setColor(viewers >= 1000 ? 0x9b59b6 : viewers >= 200 ? 0x6441a5 : 0x4a3281);
+    const streamBody = () => [
+        `**${formatNumber(viewers)}** viewers`,
+        `Payout: **$${formatNumber(payout())}**`,
+        segment > 0 ? `Segment ${segment}/${MAX_SEGMENTS}` : null,
+        lastEvent ? `*${lastEvent.label}*` : null,
+    ].filter(Boolean).join('  ·  ');
+
+    const streamFooter = () => [
+        base.label,
+        equipment.length ? equipment.join(' · ') : null,
+        nextTier ? `More categories at $${formatNumber(nextTier.min)}` : null,
+    ].filter(Boolean).join('  ·  ');
 
     const streamButtons = () => new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('stream_next').setLabel('Keep Streaming').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('stream_end').setLabel(`Cash Out ($${formatNumber(payout())})`).setStyle(ButtonStyle.Success),
     );
 
-    const msg = await interaction.reply({ embeds: [streamEmbed()], components: [streamButtons()], fetchReply: true });
+    const msg = await interaction.reply({
+        ...buildPanel('Streaming', streamBody(), streamFooter(), streamButtons()),
+        fetchReply: true,
+    });
 
     const collector = msg.createMessageComponentCollector({
         filter: j => j.user.id === interaction.user.id,
         time: 600000,
     });
 
-    const finish = async (j = null) => {
+    const finish = async (j = null, isOutage = false) => {
         ended = true;
         collector.stop('done');
         const earnings = payout();
         user.balance = parseFloat((user.balance + earnings).toFixed(2));
         await user.save();
-        const embed = new EmbedBuilder()
-            .setTitle(`Stream Ended - ${base.label}`)
-            .setDescription(`**${formatNumber(viewers)}** viewers | **${segment}** segments\nYou earned **$${formatNumber(earnings)}**!`)
-            .addFields({ name: '💵 New Balance', value: `$${formatNumber(user.balance)}`, inline: true })
-            .setColor(0x00cc44);
-        if (j) await j.update({ embeds: [embed], components: [] });
-        else await msg.edit({ embeds: [embed], components: [] }).catch(() => {});
+
+        const title = isOutage ? 'Stream Ended - ISP Outage' : `Stream Ended - ${base.label}`;
+        const body  = isOutage
+            ? `Your internet cut out with **${formatNumber(viewers)}** viewers.\nYou earned **$${formatNumber(earnings)}** before it happened.`
+            : `**${formatNumber(viewers)}** viewers  ·  **${segment}** segments\nYou earned **$${formatNumber(earnings)}**`;
+
+        const panel = buildPanel(title, body, `New balance: $${formatNumber(user.balance)}`, null);
+        if (j) await j.update(panel);
+        else await msg.edit(panel).catch(() => {});
     };
 
     collector.on('collect', async j => {
@@ -145,21 +166,7 @@ async function execute(interaction, user) {
 
         if (event) {
             const next = event.fn(viewers);
-            if (next === -1) {
-                ended = true;
-                collector.stop('done');
-                const earnings = payout();
-                user.balance = parseFloat((user.balance + earnings).toFixed(2));
-                await user.save();
-                return j.update({
-                    embeds: [new EmbedBuilder()
-                        .setTitle('Stream Ended - ISP Outage')
-                        .setDescription(`Your internet cut out with **${formatNumber(viewers)}** viewers.\nYou earned **$${formatNumber(earnings)}** before it happened.`)
-                        .addFields({ name: '💵 New Balance', value: `$${formatNumber(user.balance)}`, inline: true })
-                        .setColor(0xff3333)],
-                    components: [],
-                });
-            }
+            if (next === -1) { await finish(j, true); return; }
             viewers = Math.max(1, next);
         } else {
             const rate = growthMin + Math.random() * (growthMax - growthMin);
@@ -167,7 +174,7 @@ async function execute(interaction, user) {
         }
 
         if (segment >= MAX_SEGMENTS) { await finish(j); return; }
-        await j.update({ embeds: [streamEmbed()], components: [streamButtons()] });
+        await j.update(buildPanel('Streaming', streamBody(), streamFooter(), streamButtons()));
     });
 
     collector.on('end', async (_, reason) => { if (!ended) await finish(); });

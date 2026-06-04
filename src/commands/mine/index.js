@@ -28,8 +28,6 @@ module.exports = {
                 return interaction.reply({ content: `Your tools need to recover. Ready <t:${readyAt}:R>.`, ephemeral: true });
             }
         }
-        cooldowns.mine.set(cdKey, now);
-
         const pickaxe     = getPickaxe(user);
         const totalWealth = user.balance + user.bank;
         const tier        = getTier(totalWealth);
@@ -38,8 +36,8 @@ module.exports = {
         const hasBackpack = hasItem(user, 'mining_backpack');
         const caveinLoss  = hasBackpack ? 0.10 : 0.50;
 
-        // Deduct pickaxe durability
-        user.pickaxeDurability = Math.max(0, (user.pickaxeDurability ?? pickaxe.durability) - 1);
+        // Deduct durability - use || so 0 falls back to item.durability (handles new pickaxe with unset field)
+        user.pickaxeDurability = Math.max(0, ((user.pickaxeDurability || pickaxe.durability) - 1));
         const pickBroke = user.pickaxeDurability === 0;
         if (pickBroke) user.inventory = (user.inventory || []).filter(i => i.item !== pickaxe.id);
 
@@ -49,6 +47,9 @@ module.exports = {
         if (pickBroke) {
             return interaction.reply({ content: `Your **${pickaxe.name}** broke on that session. Buy a new one from \`/shop\`.`, ephemeral: true });
         }
+
+        // Only charge cooldown if the session actually runs
+        cooldowns.mine.set(cdKey, now);
 
         const tiles    = buildTiles(tier.dist);
         const revealed = Array(16).fill(false);

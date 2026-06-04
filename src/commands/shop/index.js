@@ -35,9 +35,11 @@ module.exports = {
                             { name: 'Diamond Bucket ($50,000)',          value: 'bucket_diamond'         },
                             { name: 'Crystal Bucket ($175,000)',         value: 'bucket_crystal'         },
                             // Mining
-                            { name: 'Basic Pickaxe ($1,500)',            value: 'pickaxe_basic'       },
-                            { name: 'Iron Pickaxe ($6,000)',             value: 'pickaxe_iron'        },
-                            { name: 'Diamond Pickaxe ($20,000)',         value: 'pickaxe_diamond'     },
+                            { name: 'Wooden Pickaxe ($500)',             value: 'pickaxe_wooden'      },
+                            { name: 'Basic Pickaxe ($4,000)',            value: 'pickaxe_basic'       },
+                            { name: 'Iron Pickaxe ($20,000)',            value: 'pickaxe_iron'        },
+                            { name: 'Diamond Pickaxe ($75,000)',         value: 'pickaxe_diamond'     },
+                            { name: 'Netherite Pickaxe ($250,000)',      value: 'pickaxe_netherite'   },
                             { name: 'Mining Backpack ($3,500)',          value: 'mining_backpack'     },
                             { name: 'Mining Bomb ($2,500)',              value: 'mining_bomb'         },
                             // Streaming

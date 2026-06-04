@@ -4,7 +4,24 @@ const {
 } = require('discord.js');
 const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
+const { ITEMS, PICKAXE_TIERS } = require('../shop/items');
 const { TIERS, ORES } = require('./data');
+
+const PICKAXE_STATS = {
+    pickaxe_wooden:   { multiplier: 1.00 },
+    pickaxe_basic:    { multiplier: 1.15 },
+    pickaxe_iron:     { multiplier: 1.30 },
+    pickaxe_diamond:  { multiplier: 1.55 },
+    pickaxe_netherite:{ multiplier: 1.90 },
+};
+
+function getPickaxe(user) {
+    for (let i = PICKAXE_TIERS.length - 1; i >= 0; i--) {
+        const id = PICKAXE_TIERS[i];
+        if (hasItem(user, id)) return { id, ...ITEMS[id], stats: PICKAXE_STATS[id] };
+    }
+    return null;
+}
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
@@ -12,12 +29,6 @@ function getTier(totalWealth) {
     let tier = TIERS[0];
     for (const t of TIERS) { if (totalWealth >= t.min) tier = t; }
     return tier;
-}
-
-function getPickaxeMultiplier(user) {
-    if (hasItem(user, 'pickaxe_diamond')) return 1.45;
-    if (hasItem(user, 'pickaxe_iron'))    return 1.20;
-    return 1.0;
 }
 
 function buildTiles(dist) {
@@ -77,4 +88,4 @@ function buildPanel(title, body, footer, gridRows) {
     return { flags: MessageFlags.IsComponentsV2, components: [container] };
 }
 
-module.exports = { rand, getTier, getPickaxeMultiplier, buildTiles, buildGrid, buildPanel };
+module.exports = { rand, getTier, getPickaxe, buildTiles, buildGrid, buildPanel };

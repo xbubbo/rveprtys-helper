@@ -1,12 +1,12 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getUser } = require('../../utils/economy');
-const { hasAnyItem, hasItem, consumeItem } = require('../../utils/inventory');
+const { hasAnyItem, hasItem, consumeItem } = require('../../utils/inventory'); // hasItem used for backpack check
 const cooldowns = require('../../utils/cooldowns');
 const { formatNumber } = require('../../utils/format');
 const { COOLDOWN, TIERS, ORES } = require('./data');
-const { rand, getTier, getPickaxeMultiplier, buildTiles, buildGrid, buildPanel } = require('./helpers');
+const { rand, getTier, getPickaxe, buildTiles, buildGrid, buildPanel } = require('./helpers');
 
-const PICKAXES = ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'];
+const PICKAXES = ['pickaxe_wooden', 'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'pickaxe_netherite'];
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,14 +30,25 @@ module.exports = {
         }
         cooldowns.mine.set(cdKey, now);
 
+        const pickaxe     = getPickaxe(user);
         const totalWealth = user.balance + user.bank;
         const tier        = getTier(totalWealth);
         const nextTier    = TIERS[TIERS.indexOf(tier) + 1];
-        const pickMulti   = getPickaxeMultiplier(user);
+        const pickMulti   = pickaxe.stats.multiplier;
         const hasBackpack = hasItem(user, 'mining_backpack');
-        const caveinLoss  = hasBackpack ? 0.10 : 0.25;
-        const useBomb     = consumeItem(user, 'mining_bomb');
-        if (useBomb) await user.save();
+        const caveinLoss  = hasBackpack ? 0.10 : 0.50;
+
+        // Deduct pickaxe durability
+        user.pickaxeDurability = Math.max(0, (user.pickaxeDurability ?? pickaxe.durability) - 1);
+        const pickBroke = user.pickaxeDurability === 0;
+        if (pickBroke) user.inventory = (user.inventory || []).filter(i => i.item !== pickaxe.id);
+
+        const useBomb = consumeItem(user, 'mining_bomb');
+        await user.save();
+
+        if (pickBroke) {
+            return interaction.reply({ content: `Your **${pickaxe.name}** broke on that session. Buy a new one from \`/shop\`.`, ephemeral: true });
+        }
 
         const tiles    = buildTiles(tier.dist);
         const revealed = Array(16).fill(false);
@@ -58,8 +69,11 @@ module.exports = {
             }
         }
 
-        const pickName = hasItem(user, 'pickaxe_diamond') ? 'Diamond Pickaxe' : hasItem(user, 'pickaxe_iron') ? 'Iron Pickaxe' : 'Basic Pickaxe';
-        const extras   = [pickName, hasBackpack ? 'Backpack' : null, useBomb ? 'Bomb used' : null].filter(Boolean).join(' · ');
+        const extras = [
+            `${pickaxe.name} (${user.pickaxeDurability} sessions left)`,
+            hasBackpack ? 'Backpack' : null,
+            useBomb ? 'Bomb used' : null,
+        ].filter(Boolean).join(' · ');
 
         const mineBody = (state = 'mining') => {
             if (state === 'mining') return (
@@ -116,6 +130,9 @@ module.exports = {
             if (type === 'cavein') {
                 caveins++;
                 earned = Math.max(0, Math.floor(earned * (1 - caveinLoss)));
+                // Cave-in also damages the pickaxe extra
+                user.pickaxeDurability = Math.max(0, (user.pickaxeDurability ?? 0) - 3);
+                await user.save();
                 await j.update(buildPanel(mineTitle(), mineBody(), extras, buildGrid(tiles, revealed, earned, false)));
                 return;
             }

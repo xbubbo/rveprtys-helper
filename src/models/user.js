@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
     fishBucket:          [{ item: String, quantity: { type: Number, default: 1 } }],
     fishRodDurability:   { type: Number, default: 0 },
     lastFishCast:        { type: Number, default: 0 },
+    pickaxeDurability:   { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model('User', userSchema);

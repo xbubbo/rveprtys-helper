@@ -65,24 +65,35 @@ const ITEMS = {
         description: 'Holds 200 items. Sell contents for +40% value.',
     },
 
-    // Mining
+    // Mining - Pickaxes (durability tracked in user.pickaxeDurability)
+    pickaxe_wooden: {
+        emoji: '⛏️', name: 'Wooden Pickaxe', price: 500, category: 'mining',
+        durability: 25,
+        description: '25 sessions. Starter pickaxe. Low durability.',
+    },
     pickaxe_basic: {
-        emoji: '⛏️', name: 'Basic Pickaxe', price: 1500, category: 'mining',
-        description: 'Required to mine. Standard performance.',
+        emoji: '⛏️', name: 'Basic Pickaxe', price: 4000, category: 'mining',
+        durability: 35, requires: 'pickaxe_wooden',
+        description: '35 sessions. +15% ore value.',
     },
     pickaxe_iron: {
-        emoji: '⛏️', name: 'Iron Pickaxe', price: 6000, category: 'mining',
-        description: '+20% value on all ore found.',
-        requires: 'pickaxe_basic',
+        emoji: '⛏️', name: 'Iron Pickaxe', price: 20000, category: 'mining',
+        durability: 55, requires: 'pickaxe_basic',
+        description: '55 sessions. +30% ore value.',
     },
     pickaxe_diamond: {
-        emoji: '💎', name: 'Diamond Pickaxe', price: 20000, category: 'mining',
-        description: '+45% value on all ore found.',
-        requires: 'pickaxe_iron',
+        emoji: '💎', name: 'Diamond Pickaxe', price: 75000, category: 'mining',
+        durability: 80, requires: 'pickaxe_iron',
+        description: '80 sessions. +55% ore value.',
+    },
+    pickaxe_netherite: {
+        emoji: '🔱', name: 'Netherite Pickaxe', price: 250000, category: 'mining',
+        durability: 120, requires: 'pickaxe_diamond',
+        description: '120 sessions. +90% ore value. Endgame tier.',
     },
     mining_backpack: {
         emoji: '🎒', name: 'Mining Backpack', price: 3500, category: 'mining',
-        description: 'Cave-ins only reduce your haul by 10% instead of 25%.',
+        description: 'Cave-ins only reduce your haul by 10% instead of 50%.',
     },
     mining_bomb: {
         emoji: '💥', name: 'Mining Bomb', price: 2500, category: 'mining', consumable: true,
@@ -113,8 +124,9 @@ const ITEMS = {
     },
 };
 
-const ROD_TIERS    = ['fishing_rod_wooden', 'fishing_rod_basic', 'fishing_rod_upgraded', 'fishing_rod_super', 'fishing_rod_legendary'];
-const BUCKET_TIERS = ['bucket_wooden', 'bucket_iron', 'bucket_gold', 'bucket_diamond', 'bucket_crystal'];
+const ROD_TIERS     = ['fishing_rod_wooden', 'fishing_rod_basic', 'fishing_rod_upgraded', 'fishing_rod_super', 'fishing_rod_legendary'];
+const BUCKET_TIERS  = ['bucket_wooden', 'bucket_iron', 'bucket_gold', 'bucket_diamond', 'bucket_crystal'];
+const PICKAXE_TIERS = ['pickaxe_wooden', 'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'pickaxe_netherite'];
 
 const CATEGORY_LABELS = {
     general:   '🏪 General',
@@ -123,4 +135,4 @@ const CATEGORY_LABELS = {
     streaming: '📺 Streaming Gear',
 };
 
-module.exports = { ITEMS, ROD_TIERS, BUCKET_TIERS, CATEGORY_LABELS };
+module.exports = { ITEMS, ROD_TIERS, BUCKET_TIERS, PICKAXE_TIERS, CATEGORY_LABELS };

@@ -8,13 +8,13 @@ const TIERS = [
 ];
 
 const ORES = {
-    empty:   { emoji: '⬛', min: 0,      max: 0      },
-    coal:    { emoji: '⚫', min: 50,     max: 200    },
-    iron:    { emoji: '⬜', min: 200,    max: 600    },
-    gold:    { emoji: '🟡', min: 800,    max: 2500   },
-    ruby:    { emoji: '🔴', min: 3000,   max: 9000   },
-    diamond: { emoji: '💎', min: 15000,  max: 50000  },
-    cavein:  { emoji: '💥', min: 0,      max: 0      },
+    empty:   { emoji: '⬛', min: 0,     max: 0      },
+    coal:    { emoji: '⚫', min: 10,    max: 50     },
+    iron:    { emoji: '⬜', min: 50,    max: 150    },
+    gold:    { emoji: '🟡', min: 200,   max: 700    },
+    ruby:    { emoji: '🔴', min: 800,   max: 2500   },
+    diamond: { emoji: '💎', min: 4000,  max: 12000  },
+    cavein:  { emoji: '💥', min: 0,     max: 0      },
 };
 
 module.exports = { COOLDOWN, TIERS, ORES };

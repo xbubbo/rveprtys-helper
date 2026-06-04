@@ -339,7 +339,10 @@ async function handleSell(interaction) {
     const items  = [...(user.fishBucket || [])];
     if (!items.length || !bucket) return;
 
-    const mult  = bucket.sellMultiplier ?? 1;
+    const count    = bucketCount(user);
+    const isFull   = count >= bucket.slots;
+    const fullBonus = isFull ? 1.15 : 1;
+    const mult     = (bucket.sellMultiplier ?? 1) * fullBonus;
     const rows  = await Promise.all(
         items
             .sort((a, b) => (CATCH_ITEMS[b.item]?.value ?? 0) - (CATCH_ITEMS[a.item]?.value ?? 0))
@@ -362,7 +365,10 @@ async function handleSell(interaction) {
     await user.save();
 
     const tier      = rod ? getTier(user.balance + user.bank) : TIERS[0];
-    const multLine  = mult > 1 ? `\n-# ${bucket.name} bonus: x${mult}` : '';
+    const bonusParts = [];
+    if (bucket.sellMultiplier > 1) bonusParts.push(`${bucket.name} x${bucket.sellMultiplier}`);
+    if (isFull) bonusParts.push('Full bucket +15%');
+    const multLine = bonusParts.length ? `\n-# ${bonusParts.join('  ·  ')}` : '';
     const castBtn   = [new ButtonBuilder().setCustomId('fish_cast').setLabel('Cast Again').setStyle(ButtonStyle.Primary)];
 
     await interaction.message.edit(buildPanel(

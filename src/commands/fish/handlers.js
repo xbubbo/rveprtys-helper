@@ -133,13 +133,12 @@ async function handleReel(interaction) {
     if (rod.stats.multiChance > 0 && Math.random() < rod.stats.multiChance) catchCount = rod.stats.multiCount;
     catchCount = Math.min(catchCount, bucket.slots - bucketCount(user));
 
-    // Bonus fish (multi-catch) come from one tier lower - prevents multi-catch being a money printer
-    const tierIdx     = TIERS.findIndex(t => t.loc === tierLoc);
-    const bonusTierLoc = tierIdx > 0 ? TIERS[tierIdx - 1].loc : tierLoc;
+    // Bonus fish use the same location but one less skip - feels exciting but slightly less filtered
+    const bonusSkip = Math.max(0, rod.stats.skip - 1);
 
     const caught = [];
     for (let k = 0; k < catchCount; k++) {
-        const id = k === 0 ? itemOnLine : pickItem(bonusTierLoc, 0, false);
+        const id = k === 0 ? itemOnLine : pickItem(tierLoc, bonusSkip, false);
         caught.push(id);
         if (!user.fishBucket) user.fishBucket = [];
         const ex = user.fishBucket.find(e => e.item === id);

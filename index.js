@@ -50,7 +50,7 @@ function updatePresence() {
     const statuses = [
         { name: `💣 Detonating in ${guildCount.toLocaleString()} servers`, type: ActivityType.Playing },
         { name: `${guildCount.toLocaleString()} economies`, type: ActivityType.Watching },
-        { name: `?help | economicbomb.xyz`, type: ActivityType.Playing },
+        { name: `/help | economicbomb.nrglearning.xyz`, type: ActivityType.Playing },
         { name: `the market crash 📉`, type: ActivityType.Watching },
     ];
     const pick = statuses[Math.floor(Math.random() * statuses.length)];

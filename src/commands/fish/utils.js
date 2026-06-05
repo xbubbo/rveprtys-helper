@@ -6,12 +6,12 @@ const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
 const { ITEMS, ROD_TIERS, BUCKET_TIERS } = require('../shop/items');
 const FishMarket = require('../../models/fishmarket');
-const { COOLDOWN, CATCH_ITEMS, TABLES, ROD_STATS } = require('./data');
+const { COOLDOWN, CATCH_ITEMS, TABLES, ROD_STATS } = require('./catalog');
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 function getTier(wealth) {
-    const { TIERS } = require('./data');
+    const { TIERS } = require('./catalog');
     let t = TIERS[0];
     for (const x of TIERS) { if (wealth >= x.min) t = x; }
     return t;

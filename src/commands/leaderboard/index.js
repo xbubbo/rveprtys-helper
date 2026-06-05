@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const User = require('../../models/user');
-const { buildPage } = require('./page');
+const { buildPage } = require('./pages');
 
 async function fetchUsers(guildId, mode) {
     if (mode === 'global' || mode === 'global-bank') {

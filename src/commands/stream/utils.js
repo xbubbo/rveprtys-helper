@@ -4,7 +4,7 @@ const {
 } = require('discord.js');
 const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
-const { TIERS } = require('./data');
+const { TIERS } = require('./config');
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 

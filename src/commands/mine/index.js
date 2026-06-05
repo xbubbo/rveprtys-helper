@@ -3,8 +3,8 @@ const { getUser } = require('../../utils/economy');
 const { hasAnyItem, hasItem, consumeItem } = require('../../utils/inventory'); // hasItem used for backpack check
 const cooldowns = require('../../utils/cooldowns');
 const { formatNumber } = require('../../utils/format');
-const { COOLDOWN, TIERS, ORES } = require('./data');
-const { rand, getTier, getPickaxe, buildTiles, buildGrid, buildPanel } = require('./helpers');
+const { COOLDOWN, TIERS, ORES } = require('./ores');
+const { rand, getTier, getPickaxe, buildTiles, buildGrid, buildPanel } = require('./utils');
 
 const PICKAXES = ['pickaxe_wooden', 'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'pickaxe_netherite'];
 

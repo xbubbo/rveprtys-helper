@@ -5,7 +5,7 @@ const {
 const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
 const { ITEMS, PICKAXE_TIERS } = require('../shop/items');
-const { TIERS, ORES } = require('./data');
+const { TIERS, ORES } = require('./ores');
 
 const PICKAXE_STATS = {
     pickaxe_wooden:   { multiplier: 1.00 },

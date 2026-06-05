@@ -3,8 +3,8 @@ const { getUser } = require('../../utils/economy');
 const { hasAllItems, hasItem } = require('../../utils/inventory');
 const { formatNumber } = require('../../utils/format');
 const cooldowns = require('../../utils/cooldowns');
-const { COOLDOWN, MAX_SEGMENTS, TIERS, CATEGORIES } = require('./data');
-const { rand, getTier, buildEvents, rollEvent, buildPanel, streamButtons } = require('./helpers');
+const { COOLDOWN, MAX_SEGMENTS, TIERS, CATEGORIES } = require('./config');
+const { rand, getTier, buildEvents, rollEvent, buildPanel, streamButtons } = require('./utils');
 
 const REQUIRED = ['keyboard_mouse', 'camera'];
 

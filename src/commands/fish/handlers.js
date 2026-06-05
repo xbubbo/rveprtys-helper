@@ -2,12 +2,12 @@ const { ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getUser } = require('../../utils/economy');
 const { formatNumber } = require('../../utils/format');
 const { hasItem, consumeItem } = require('../../utils/inventory');
-const { COOLDOWN, CATCH_ITEMS } = require('./data');
+const { COOLDOWN, CATCH_ITEMS } = require('./catalog');
 const {
     rand, getTier, getRod, getBucket, bucketCount,
     getNpcPrice, calcSellTotal, recordSales, pickItem,
     buildPanel, mainButtons, statusFooter,
-} = require('./helpers');
+} = require('./utils');
 
 async function handleCast(interaction) {
     await interaction.deferUpdate();

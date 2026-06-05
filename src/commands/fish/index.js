@@ -1,8 +1,8 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getUser } = require('../../utils/economy');
-const { getRod, getBucket, bucketCount, calcSellTotal, getTier, buildPanel, mainButtons, statusFooter } = require('./helpers');
+const { getRod, getBucket, bucketCount, calcSellTotal, getTier, buildPanel, mainButtons, statusFooter } = require('./utils');
 const { handleCast, handleReel, handleCut, handleSell, handleBucket, handleBack } = require('./handlers');
-const { CATCH_ITEMS, TIERS } = require('./data');
+const { CATCH_ITEMS, TIERS } = require('./catalog');
 
 module.exports = {
     data: new SlashCommandBuilder()

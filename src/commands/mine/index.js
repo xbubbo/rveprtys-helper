@@ -48,9 +48,9 @@ module.exports = {
         } else {
             pickaxe = getPickaxe(user);
         }
-        const tier        = getTier(pickaxe.id);
-        const nextTier    = TIERS[TIERS.indexOf(tier) + 1];
-        const nextPickaxe = nextTier ? ITEMS[nextTier.pickaxe] : null;
+        const tier          = getTier(pickaxe.id);
+        const nextTier      = TIERS.slice(TIERS.indexOf(tier) + 1).find(t => !hasItem(user, t.pickaxe));
+        const nextPickaxe   = nextTier ? ITEMS[nextTier.pickaxe] : null;
         const pickMulti   = pickaxe.stats.multiplier;
         const hasBackpack = hasItem(user, 'mining_backpack');
         const caveinLoss  = hasBackpack ? 0.10 : 0.50;

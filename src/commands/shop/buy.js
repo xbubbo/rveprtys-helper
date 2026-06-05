@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
 const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
-const { ITEMS, ROD_TIERS, PICKAXE_TIERS } = require('./items');
+const { ITEMS, ROD_TIERS, PICKAXE_TIERS, resolveItem } = require('./items');
 
 async function execute(interaction, user) {
-    const key      = interaction.options.getString('item');
+    const key      = resolveItem(interaction.options.getString('item'));
     const quantity = interaction.options.getInteger('quantity') ?? 1;
-    const item     = ITEMS[key];
+    const item     = key ? ITEMS[key] : null;
     if (!item) return interaction.reply({ content: '❌ Invalid item.', ephemeral: true });
 
     // Upgrade chain requirement

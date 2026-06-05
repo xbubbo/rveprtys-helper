@@ -117,7 +117,16 @@ router
         if (s === 'list')   return run('slave', { getSubcommand: () => 'list' });
         return run('slave', { getSubcommand: () => 'status' });
     })
-    .on('buy',        'slave', (args, msg, run) => run('slave', { getSubcommand: () => 'buy',    getUser: n => n === 'user' ? mention(msg) : null }))
+    .on('buy', 'slave', (args, msg, run) => {
+        if (mention(msg)) return run('slave', { getSubcommand: () => 'buy', getUser: n => n === 'user' ? mention(msg) : null });
+        const lastIsNum = args.length > 1 && !isNaN(parseInt(args[args.length - 1]));
+        const qty       = lastIsNum ? parseInt(args.pop()) : null;
+        return run('shop', {
+            getSubcommand: () => 'buy',
+            getString:  n => n === 'item'     ? args.join(' ') : null,
+            getInteger: n => n === 'quantity' ? qty            : null,
+        });
+    })
     .on('sellslave',  'slave', (args, msg, run) => run('slave', { getSubcommand: () => 'sell',   getUser: n => n === 'user' ? mention(msg) : null, getInteger: n => n === 'startingbid' ? parseAmount(args[1]) : null }))
     .on('outbid',     'slave', (args, msg, run) => run('slave', { getSubcommand: () => 'outbid', getNumber: n => n === 'amount' ? parseAmount(args[0]) : null }))
     .on('slavepanel', 'slave', (args, msg, run) => run('slave', { getSubcommand: () => 'panel' }))
@@ -171,12 +180,25 @@ router
     // Shop
     .on('shop', null, (args, msg, run) => {
         const s = args.shift()?.toLowerCase();
-        if (s === 'buy') return run('shop', {
-            getSubcommand: () => 'buy',
-            getString:  n => n === 'item'     ? args[0]           : null,
-            getInteger: n => n === 'quantity' ? parseInt(args[1]) : null,
-        });
+        if (s === 'buy' || s === 'sell') {
+            const lastIsNum = args.length > 1 && !isNaN(parseInt(args[args.length - 1]));
+            const qty       = lastIsNum ? parseInt(args.pop()) : null;
+            return run('shop', {
+                getSubcommand: () => s,
+                getString:  n => n === 'item'     ? args.join(' ') : null,
+                getInteger: n => n === 'quantity' ? qty            : null,
+            });
+        }
         return run('shop', { getSubcommand: () => 'browse' });
+    })
+    .on('sell', null, (args, msg, run) => {
+        const lastIsNum = args.length > 1 && !isNaN(parseInt(args[args.length - 1]));
+        const qty       = lastIsNum ? parseInt(args.pop()) : null;
+        return run('shop', {
+            getSubcommand: () => 'sell',
+            getString:  n => n === 'item'     ? args.join(' ') : null,
+            getInteger: n => n === 'quantity' ? qty            : null,
+        });
     })
 
     // Lottery

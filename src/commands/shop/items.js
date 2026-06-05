@@ -135,4 +135,16 @@ const CATEGORY_LABELS = {
     streaming: '📺 Streaming Gear',
 };
 
-module.exports = { ITEMS, ROD_TIERS, BUCKET_TIERS, PICKAXE_TIERS, CATEGORY_LABELS };
+function resolveItem(input) {
+    if (!input) return null;
+    const raw = String(input).trim();
+    if (ITEMS[raw]) return raw;
+    const norm = raw.toLowerCase().replace(/[\s_-]+/g, '');
+    for (const [key, item] of Object.entries(ITEMS)) {
+        if (key.toLowerCase().replace(/[\s_-]+/g, '') === norm) return key;
+        if (item.name.toLowerCase().replace(/[\s_-]+/g, '') === norm) return key;
+    }
+    return null;
+}
+
+module.exports = { ITEMS, ROD_TIERS, BUCKET_TIERS, PICKAXE_TIERS, CATEGORY_LABELS, resolveItem };

@@ -2,7 +2,7 @@ const { ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getUser } = require('../../utils/economy');
 const { formatNumber } = require('../../utils/format');
 const { hasItem, consumeItem } = require('../../utils/inventory');
-const { COOLDOWN, CATCH_ITEMS } = require('./catalog');
+const { COOLDOWN, CATCH_ITEMS, TIERS } = require('./catalog');
 const {
     rand, getTier, getRod, getBucket, bucketCount,
     getNpcPrice, calcSellTotal, recordSales, pickItem,
@@ -133,9 +133,13 @@ async function handleReel(interaction) {
     if (rod.stats.multiChance > 0 && Math.random() < rod.stats.multiChance) catchCount = rod.stats.multiCount;
     catchCount = Math.min(catchCount, bucket.slots - bucketCount(user));
 
+    // Bonus fish (multi-catch) come from one tier lower - prevents multi-catch being a money printer
+    const tierIdx     = TIERS.findIndex(t => t.loc === tierLoc);
+    const bonusTierLoc = tierIdx > 0 ? TIERS[tierIdx - 1].loc : tierLoc;
+
     const caught = [];
     for (let k = 0; k < catchCount; k++) {
-        const id = k === 0 ? itemOnLine : pickItem(tierLoc, rod.stats.skip, hadBait && k === 1);
+        const id = k === 0 ? itemOnLine : pickItem(bonusTierLoc, 0, false);
         caught.push(id);
         if (!user.fishBucket) user.fishBucket = [];
         const ex = user.fishBucket.find(e => e.item === id);

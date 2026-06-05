@@ -6,8 +6,6 @@ const cooldowns = require('../../utils/cooldowns');
 const { COOLDOWN, MAX_SEGMENTS, TIERS, CATEGORIES } = require('./config');
 const { rand, getTier, buildEvents, rollEvent, buildPanel, streamButtons } = require('./utils');
 
-const REQUIRED = ['keyboard_mouse'];
-
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('stream')

@@ -118,6 +118,8 @@ router
         return run('slave', { getSubcommand: () => 'status' });
     })
     .on('buy', null, (args, msg, run) => {
+        if (args[0]?.toLowerCase() === 'slave')
+            return run('slave', { getSubcommand: () => 'buy', getUser: n => n === 'user' ? mention(msg) : null });
         const lastIsNum = args.length > 1 && !isNaN(parseInt(args[args.length - 1]));
         const qty       = lastIsNum ? parseInt(args.pop()) : null;
         return run('shop', {
@@ -212,8 +214,24 @@ router
     })
 
     // Activity commands
-    .on('fish',   null, (args, msg, run) => run('fish',   {}))
-    .on('mine',   null, (args, msg, run) => run('mine',   {}))
+    .on('fish', null, (args, msg, run) => {
+        const raw = args.join('').toLowerCase().replace(/[\s_-]/g, '');
+        const locMap = { pond: 'pond', river: 'river', ocean: 'ocean', deepsea: 'deepsea', deep: 'deepsea', sea: 'deepsea' };
+        const loc = locMap[raw] ?? null;
+        return run('fish', { getString: n => n === 'location' ? loc : null });
+    })
+    .on('mine', null, (args, msg, run) => {
+        const raw = args.join('').toLowerCase().replace(/[\s_-]/g, '');
+        const pickMap = {
+            wooden: 'pickaxe_wooden', woodenpickaxe: 'pickaxe_wooden',
+            basic:  'pickaxe_basic',  basicpickaxe:  'pickaxe_basic',
+            iron:   'pickaxe_iron',   ironpickaxe:   'pickaxe_iron',
+            diamond:'pickaxe_diamond',diamondpickaxe:'pickaxe_diamond',
+            netherite:'pickaxe_netherite', netheritepickaxe:'pickaxe_netherite',
+        };
+        const pickaxe = pickMap[raw] ?? null;
+        return run('mine', { getString: n => n === 'pickaxe' ? pickaxe : null });
+    })
     .on('stream', null, (args, msg, run) => run('stream', {}))
 
     // Misc

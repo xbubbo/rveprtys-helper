@@ -9,10 +9,10 @@ const { TIERS, ORES } = require('./ores');
 
 const PICKAXE_STATS = {
     pickaxe_wooden:   { multiplier: 1.00 },
-    pickaxe_basic:    { multiplier: 1.15 },
-    pickaxe_iron:     { multiplier: 1.30 },
-    pickaxe_diamond:  { multiplier: 1.55 },
-    pickaxe_netherite:{ multiplier: 1.90 },
+    pickaxe_basic:    { multiplier: 1.30 },
+    pickaxe_iron:     { multiplier: 1.70 },
+    pickaxe_diamond:  { multiplier: 2.25 },
+    pickaxe_netherite:{ multiplier: 3.00 },
 };
 
 function getPickaxe(user) {
@@ -25,10 +25,8 @@ function getPickaxe(user) {
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-function getTier(totalWealth) {
-    let tier = TIERS[0];
-    for (const t of TIERS) { if (totalWealth >= t.min) tier = t; }
-    return tier;
+function getTier(pickaxeId) {
+    return TIERS.find(t => t.pickaxe === pickaxeId) ?? TIERS[0];
 }
 
 function buildTiles(dist) {

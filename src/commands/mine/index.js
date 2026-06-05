@@ -5,6 +5,7 @@ const cooldowns = require('../../utils/cooldowns');
 const { formatNumber } = require('../../utils/format');
 const { COOLDOWN, TIERS, ORES } = require('./ores');
 const { rand, getTier, getPickaxe, buildTiles, buildGrid, buildPanel } = require('./utils');
+const { ITEMS } = require('../shop/items');
 
 const PICKAXES = ['pickaxe_wooden', 'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'pickaxe_netherite'];
 
@@ -29,9 +30,9 @@ module.exports = {
             }
         }
         const pickaxe     = getPickaxe(user);
-        const totalWealth = user.balance + user.bank;
-        const tier        = getTier(totalWealth);
+        const tier        = getTier(pickaxe.id);
         const nextTier    = TIERS[TIERS.indexOf(tier) + 1];
+        const nextPickaxe = nextTier ? ITEMS[nextTier.pickaxe] : null;
         const pickMulti   = pickaxe.stats.multiplier;
         const hasBackpack = hasItem(user, 'mining_backpack');
         const caveinLoss  = hasBackpack ? 0.10 : 0.50;
@@ -81,7 +82,7 @@ module.exports = {
                 `Ore found: **$${formatNumber(earned)}**` +
                 (caveins > 0 ? `  ·  Cave-ins: ${caveins} (-${Math.round(caveinLoss * 100)}% each)` : '') +
                 '\n\nClick tiles to mine. Cash out anytime.' +
-                (nextTier ? `\n\n*Unlock **${nextTier.label}** at $${formatNumber(nextTier.min)} total wealth*` : '')
+                (nextTier ? `\n\n*Upgrade to **${nextPickaxe?.name ?? 'the next pickaxe'}** to mine the **${nextTier.label}**.*` : '')
             );
             if (state === 'cashout') return `You hauled **$${formatNumber(earned)}** worth of ore out of the ${tier.label}.`;
             if (state === 'cleared') return `Every vein mined in the ${tier.label}!\n\nTotal haul: **$${formatNumber(earned)}**`;

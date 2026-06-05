@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema({
     prestigeMultiplier:  { type: Number, default: 1 },
     jobId:               { type: String,  default: null },
     jobMultiplier:       { type: Number, default: 1 },
-    fishBucket:          [{ item: String, quantity: { type: Number, default: 1 } }],
+    fishBucket:          [{ item: String, weight: Number, quantity: Number }],
     fishRodDurability:   { type: Number, default: 0 },
     lastFishCast:        { type: Number, default: 0 },
     pickaxeDurability:   { type: Number, default: 0 },

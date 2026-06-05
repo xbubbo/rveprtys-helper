@@ -5,9 +5,15 @@ const { hasItem, consumeItem } = require('../../utils/inventory');
 const { COOLDOWN, CATCH_ITEMS, TIERS } = require('./catalog');
 const {
     rand, getTier, getRod, getBucket, bucketCount,
-    getNpcPrice, calcSellTotal, recordSales, pickItem,
+    randomWeight, displayWeight, normalizeBucketEntries,
+    getCatchValue, calcSellTotal, recordSales, pickItem,
     buildPanel, mainButtons, statusFooter,
 } = require('./utils');
+
+function limitLines(lines, max = 18) {
+    if (lines.length <= max) return lines;
+    return [...lines.slice(0, max), `...and ${lines.length - max} more`];
+}
 
 async function handleCast(interaction) {
     await interaction.deferUpdate();
@@ -100,7 +106,7 @@ async function handleReel(interaction) {
     }
 
     if (itemOnLine === 'bomb') {
-        const bucket_ = user.fishBucket || [];
+        const bucket_ = normalizeBucketEntries(user.fishBucket);
         const lost    = [];
         const n       = Math.min(rand(1, 3), bucket_.length);
         for (let k = 0; k < n; k++) {
@@ -108,9 +114,8 @@ async function handleReel(interaction) {
             const idx = Math.floor(Math.random() * bucket_.length);
             const e   = bucket_[idx];
             const c   = CATCH_ITEMS[e.item];
-            lost.push(`${c?.emoji ?? ''} ${c?.name ?? e.item}`);
-            e.quantity--;
-            if (e.quantity <= 0) bucket_.splice(idx, 1);
+            lost.push(`${c?.emoji ?? ''} ${c?.name ?? e.item} (${displayWeight(e.weight)})`);
+            bucket_.splice(idx, 1);
         }
         user.fishBucket = bucket_;
         await user.save();
@@ -139,19 +144,19 @@ async function handleReel(interaction) {
     const caught = [];
     for (let k = 0; k < catchCount; k++) {
         const id = k === 0 ? itemOnLine : pickItem(tierLoc, bonusSkip, false);
-        caught.push(id);
+        const entry = { item: id, weight: randomWeight(id) };
+        caught.push(entry);
         if (!user.fishBucket) user.fishBucket = [];
-        const ex = user.fishBucket.find(e => e.item === id);
-        if (ex) ex.quantity++;
-        else user.fishBucket.push({ item: id, quantity: 1 });
+        user.fishBucket = normalizeBucketEntries(user.fishBucket);
+        user.fishBucket.push(entry);
     }
     await user.save();
 
-    const isMonster = caught.some(id => CATCH_ITEMS[id]?.type === 'monster');
-    const lines     = await Promise.all(caught.map(async id => {
-        const c     = CATCH_ITEMS[id];
-        const price = await getNpcPrice(interaction.guild.id, id, c.value);
-        return `${c.emoji} **${c.name}**  ·  $${formatNumber(price)}`;
+    const isMonster = caught.some(e => CATCH_ITEMS[e.item]?.type === 'monster');
+    const lines     = await Promise.all(caught.map(async e => {
+        const c     = CATCH_ITEMS[e.item];
+        const price = await getCatchValue(interaction.guild.id, e);
+        return `${c.emoji} **${c.name}** (${displayWeight(e.weight)})  ·  $${formatNumber(price)}`;
     }));
 
     const newCount  = bucketCount(user);
@@ -179,7 +184,7 @@ async function handleSell(interaction) {
     await interaction.deferUpdate();
     const user   = await getUser(interaction.user.id, interaction.guild.id);
     const bucket = getBucket(user);
-    const items  = [...(user.fishBucket || [])];
+    const items  = normalizeBucketEntries(user.fishBucket);
     if (!items.length || !bucket) return;
 
     const count     = bucketCount(user);
@@ -191,13 +196,13 @@ async function handleSell(interaction) {
             .sort((a, b) => (CATCH_ITEMS[b.item]?.value ?? 0) - (CATCH_ITEMS[a.item]?.value ?? 0))
             .map(async e => {
                 const c     = CATCH_ITEMS[e.item];
-                const price = await getNpcPrice(interaction.guild.id, e.item, c?.value ?? 0);
-                return `${c?.emoji ?? ''} ${c?.name ?? e.item} x${e.quantity}  $${formatNumber(price * e.quantity)}`;
+                const price = await getCatchValue(interaction.guild.id, e);
+                return `${c?.emoji ?? ''} ${c?.name ?? e.item} (${displayWeight(e.weight)})  $${formatNumber(price)}`;
             })
     );
 
     let raw = 0;
-    for (const e of items) raw += (await getNpcPrice(interaction.guild.id, e.item, CATCH_ITEMS[e.item]?.value ?? 0)) * e.quantity;
+    for (const e of items) raw += await getCatchValue(interaction.guild.id, e);
     const total = Math.floor(raw * mult);
 
     await recordSales(interaction.guild.id, items);
@@ -212,7 +217,7 @@ async function handleSell(interaction) {
 
     await interaction.message.edit(buildPanel(
         'Fishing  -  Sold',
-        rows.join('\n') + `\n\n**Total  $${formatNumber(total)}**${multLine}`,
+        limitLines(rows).join('\n') + `\n\n**Total  $${formatNumber(total)}**${multLine}`,
         `New balance: $${formatNumber(user.balance)}`,
         [new ButtonBuilder().setCustomId('fish_cast').setLabel('Cast Again').setStyle(ButtonStyle.Primary)]
     ));
@@ -224,11 +229,11 @@ async function handleBucket(interaction) {
     const bucket = getBucket(user);
     const msg    = interaction.message;
 
-    const items = [...(user.fishBucket || [])].sort((a, b) => (CATCH_ITEMS[b.item]?.value ?? 0) - (CATCH_ITEMS[a.item]?.value ?? 0));
+    const items = normalizeBucketEntries(user.fishBucket).sort((a, b) => (CATCH_ITEMS[b.item]?.value ?? 0) - (CATCH_ITEMS[a.item]?.value ?? 0));
     const lines = await Promise.all(items.map(async e => {
         const c     = CATCH_ITEMS[e.item];
-        const price = await getNpcPrice(interaction.guild.id, e.item, c?.value ?? 0);
-        return `${c?.emoji ?? '📦'} **${c?.name ?? e.item}** x${e.quantity}  ·  $${formatNumber(price * e.quantity)}`;
+        const price = await getCatchValue(interaction.guild.id, e);
+        return `${c?.emoji ?? ''} **${c?.name ?? e.item}** (${displayWeight(e.weight)})  ·  $${formatNumber(price)}`;
     }));
 
     const count = bucketCount(user);
@@ -236,7 +241,7 @@ async function handleBucket(interaction) {
 
     await msg.edit(buildPanel(
         'Bucket',
-        lines.length ? lines.join('\n') : 'Your bucket is empty.',
+        lines.length ? limitLines(lines).join('\n') : 'Your bucket is empty.',
         `${count}/${bucket?.slots ?? '?'} items  ·  Value: $${formatNumber(sell)}`,
         [
             new ButtonBuilder().setCustomId('fish_back').setLabel('Back').setStyle(ButtonStyle.Secondary),

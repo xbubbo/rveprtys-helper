@@ -6,7 +6,7 @@ const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
 const { ITEMS, ROD_TIERS, BUCKET_TIERS } = require('../shop/items');
 const FishMarket = require('../../models/fishmarket');
-const { COOLDOWN, CATCH_ITEMS, TABLES, ROD_STATS } = require('./catalog');
+const { COOLDOWN, CATCH_ITEMS, WEIGHT_STATS, TABLES, ROD_STATS } = require('./catalog');
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
@@ -34,7 +34,30 @@ function getBucket(user) {
 }
 
 function bucketCount(user) {
-    return (user.fishBucket || []).reduce((a, i) => a + i.quantity, 0);
+    return (user.fishBucket || []).reduce((a, i) => a + (i.quantity ?? 1), 0);
+}
+
+function randomWeight(itemId) {
+    const stats = WEIGHT_STATS[itemId];
+    if (!stats) return 1;
+    const weight = stats.min + Math.random() * (stats.max - stats.min);
+    return Math.round(weight * 10) / 10;
+}
+
+function displayWeight(weight) {
+    return `${formatNumber(Number(weight ?? 1))} lbs`;
+}
+
+function normalizeBucketEntries(fishBucket) {
+    const entries = [];
+    for (const e of (fishBucket || [])) {
+        const quantity = e.quantity ?? 1;
+        for (let k = 0; k < quantity; k++) {
+            const stats = WEIGHT_STATS[e.item];
+            entries.push({ item: e.item, weight: Number(e.weight ?? stats?.avg ?? 1) });
+        }
+    }
+    return entries;
 }
 
 async function getNpcPrice(guildId, fishType, baseValue) {
@@ -51,21 +74,33 @@ async function getNpcPrice(guildId, fishType, baseValue) {
 
 async function calcSellTotal(guildId, fishBucket, mult) {
     let total = 0;
-    for (const e of (fishBucket || [])) {
-        total += (await getNpcPrice(guildId, e.item, CATCH_ITEMS[e.item]?.value ?? 0)) * e.quantity;
+    for (const e of normalizeBucketEntries(fishBucket)) {
+        total += await getCatchValue(guildId, e);
     }
     return Math.floor(total * mult);
 }
 
 async function recordSales(guildId, items) {
-    for (const e of items) {
+    const counts = new Map();
+    for (const e of normalizeBucketEntries(items)) {
         if (!CATCH_ITEMS[e.item] || e.item.startsWith('junk_')) continue;
+        counts.set(e.item, (counts.get(e.item) ?? 0) + 1);
+    }
+    for (const [item, quantity] of counts) {
         await FishMarket.findOneAndUpdate(
-            { guildId, fishType: e.item },
-            { $inc: { soldLast24h: e.quantity }, $setOnInsert: { lastReset: new Date() } },
+            { guildId, fishType: item },
+            { $inc: { soldLast24h: quantity }, $setOnInsert: { lastReset: new Date() } },
             { upsert: true }
         );
     }
+}
+
+async function getCatchValue(guildId, entry) {
+    const item = CATCH_ITEMS[entry.item];
+    const basePrice = await getNpcPrice(guildId, entry.item, item?.value ?? 0);
+    const avgWeight = WEIGHT_STATS[entry.item]?.avg ?? entry.weight ?? 1;
+    const weight = Number(entry.weight ?? avgWeight);
+    return Math.max(1, Math.floor(basePrice * (weight / avgWeight)));
 }
 
 function pickItem(loc, skip, useBait) {
@@ -117,6 +152,7 @@ function statusFooter(rod, tier, user, bucket) {
 
 module.exports = {
     rand, getTier, getRod, getBucket, bucketCount,
-    getNpcPrice, calcSellTotal, recordSales, pickItem,
+    randomWeight, displayWeight, normalizeBucketEntries,
+    getNpcPrice, getCatchValue, calcSellTotal, recordSales, pickItem,
     buildPanel, mainButtons, statusFooter,
 };

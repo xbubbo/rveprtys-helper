@@ -39,6 +39,40 @@ const CATCH_ITEMS = {
     fish_blue_whale:   { name: 'Blue Whale',           emoji: '🐳', value: 280000,  type: 'monster' },
 };
 
+const WEIGHT_STATS = {
+    junk_seaweed:     { min: 0.1,   max: 2,      avg: 1 },
+    junk_boot:        { min: 0.5,   max: 5,      avg: 2.5 },
+    junk_can:         { min: 0.1,   max: 1,      avg: 0.5 },
+    junk_anchor:      { min: 8,     max: 80,     avg: 35 },
+    junk_bottle:      { min: 0.5,   max: 3,      avg: 1.5 },
+    fish_minnow:      { min: 0.1,   max: 0.8,    avg: 0.3 },
+    fish_goldfish:    { min: 0.2,   max: 3,      avg: 1 },
+    fish_perch:       { min: 0.5,   max: 5,      avg: 2 },
+    fish_sunfish:     { min: 0.3,   max: 4,      avg: 1.5 },
+    fish_carp:        { min: 2,     max: 40,     avg: 12 },
+    fish_catfish:     { min: 3,     max: 80,     avg: 20 },
+    fish_bass:        { min: 1,     max: 25,     avg: 6 },
+    fish_walleye:     { min: 1,     max: 18,     avg: 5 },
+    fish_pike:        { min: 2,     max: 45,     avg: 12 },
+    fish_trout:       { min: 0.5,   max: 30,     avg: 6 },
+    fish_cod:         { min: 2,     max: 90,     avg: 20 },
+    fish_flounder:    { min: 1,     max: 25,     avg: 8 },
+    fish_salmon:      { min: 3,     max: 60,     avg: 18 },
+    fish_halibut:     { min: 10,    max: 300,    avg: 80 },
+    fish_tuna:        { min: 20,    max: 600,    avg: 150 },
+    fish_grouper:     { min: 10,    max: 400,    avg: 90 },
+    fish_mahi_mahi:   { min: 5,     max: 80,     avg: 25 },
+    fish_swordfish:   { min: 40,    max: 800,    avg: 200 },
+    fish_wahoo:       { min: 10,    max: 180,    avg: 50 },
+    fish_marlin:      { min: 80,    max: 1200,   avg: 300 },
+    fish_shark:       { min: 80,    max: 1800,   avg: 500 },
+    fish_hammerhead:  { min: 100,   max: 1200,   avg: 450 },
+    fish_oarfish:     { min: 50,    max: 600,    avg: 150 },
+    fish_monster:     { min: 200,   max: 2500,   avg: 700 },
+    fish_giant_squid: { min: 300,   max: 2200,   avg: 900 },
+    fish_blue_whale:  { min: 50000, max: 420000, avg: 240000 },
+};
+
 const TABLES = {
     pond: [
         ['junk_seaweed',6],['junk_boot',7],['junk_can',8],['junk_anchor',3],['junk_bottle',1],
@@ -80,4 +114,4 @@ const ROD_STATS = {
     fishing_rod_legendary:{ skip: 3, snapChance: 0.001, multiChance: 0.40, multiCount: 4 },
 };
 
-module.exports = { COOLDOWN, CATCH_ITEMS, TABLES, TIERS, ROD_STATS };
+module.exports = { COOLDOWN, CATCH_ITEMS, WEIGHT_STATS, TABLES, TIERS, ROD_STATS };

@@ -39,8 +39,8 @@ module.exports = {
         const hasLight    = hasItem(user, 'ring_light');
         const events      = buildEvents(user);
 
-        const growthMin = base.growthMin + (hasLight ? 0.10 : 0);
-        const growthMax = base.growthMax + (hasLight ? 0.10 : 0);
+        const growthMin = base.growthMin + (hasLight ? 0.15 : 0);
+        const growthMax = base.growthMax + (hasLight ? 0.15 : 0);
 
         const equipment = [
             hasLight                          ? 'Ring Light'       : null,

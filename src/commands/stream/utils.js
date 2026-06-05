@@ -24,10 +24,10 @@ function buildEvents(user) {
         {
             id: 'drama', weight: 12, label: 'Drama in chat...',
             fn: hasMic
-                ? v => Math.floor(v * (0.80 + Math.random() * 0.10))
-                : v => Math.floor(v * (0.55 + Math.random() * 0.15)),
+                ? v => Math.floor(v * (0.85 + Math.random() * 0.10))
+                : v => Math.floor(v * (0.65 + Math.random() * 0.15)),
         },
-        { id: 'isp', weight: hasServer ? 1.5 : 6, label: 'ISP outage!', fn: () => -1 },
+        { id: 'isp', weight: hasServer ? 0.5 : 5, label: 'ISP outage!', fn: () => -1 },
     ];
 }
 

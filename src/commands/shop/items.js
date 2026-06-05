@@ -107,20 +107,20 @@ const ITEMS = {
     },
     camera: {
         emoji: '📷', name: 'Camera', price: 4000, category: 'streaming',
-        description: 'Noticeably boosts your viewer potential.',
+        description: 'Required to stream. Unlocks the stream command alongside Keyboard & Mouse.',
         requires: 'keyboard_mouse',
     },
     ring_light: {
         emoji: '💡', name: 'Ring Light', price: 2500, category: 'streaming',
-        description: '+10% viewer growth rate per segment.',
+        description: '+15% viewer growth rate per segment.',
     },
     microphone: {
         emoji: '🎙️', name: 'Microphone', price: 7000, category: 'streaming',
-        description: 'Drama events only reduce viewers by 10-20% instead of 30-45%.',
+        description: 'Drama events only reduce viewers by 5-15% instead of 20-35%.',
     },
     dedicated_server: {
         emoji: '🖥️', name: 'Dedicated Server', price: 18000, category: 'streaming',
-        description: 'ISP outage chance reduced from 4% to 1%.',
+        description: 'ISP outages become extremely rare. Near-eliminates internet cut risk.',
     },
 };
 

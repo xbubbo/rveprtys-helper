@@ -1,6 +1,5 @@
 require('dotenv').config();
-
-const { Client, Collection, GatewayIntentBits, REST, Routes } = require('discord.js');
+const { Client, Collection, GatewayIntentBits, REST, Routes, ActivityType } = require('discord.js');
 const fs       = require('fs');
 const mongoose = require('mongoose');
 const Stock    = require('./src/models/stock');
@@ -46,6 +45,21 @@ async function deployCommands() {
     console.log(`Deployed ${commands.length} slash commands.`);
 }
 
+function updatePresence() {
+    const guildCount = client.guilds.cache.size;
+    const statuses = [
+        { name: `💣 Detonating in ${guildCount.toLocaleString()} servers`, type: ActivityType.Playing },
+        { name: `${guildCount.toLocaleString()} economies`, type: ActivityType.Watching },
+        { name: `?help | economicbomb.xyz`, type: ActivityType.Playing },
+        { name: `the market crash 📉`, type: ActivityType.Watching },
+    ];
+    const pick = statuses[Math.floor(Math.random() * statuses.length)];
+    client.user.setPresence({
+        status: 'online',
+        activities: [{ name: pick.name, type: pick.type }]
+    });
+}
+
 loadCommands();
 
 for (const file of fs.readdirSync('./src/events').filter(f => f.endsWith('.js'))) {
@@ -55,6 +69,12 @@ for (const file of fs.readdirSync('./src/events').filter(f => f.endsWith('.js'))
 
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
+
+    updatePresence();
+    setInterval(updatePresence, 30 * 1000);
+
+    client.on('guildCreate', () => updatePresence());
+    client.on('guildDelete', () => updatePresence());
 
     setInterval(async () => {
         const stocks = await Stock.find();

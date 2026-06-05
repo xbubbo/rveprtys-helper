@@ -100,10 +100,10 @@ const TABLES = {
 };
 
 const TIERS = [
-    { min: 0,      loc: 'pond',    label: 'Pond'     },
-    { min: 10000,  loc: 'river',   label: 'River'    },
-    { min: 50000,  loc: 'ocean',   label: 'Ocean'    },
-    { min: 200000, loc: 'deepsea', label: 'Deep Sea' },
+    { rodMin: 0, loc: 'pond',    label: 'Pond'     },
+    { rodMin: 1, loc: 'river',   label: 'River'    },
+    { rodMin: 2, loc: 'ocean',   label: 'Ocean'    },
+    { rodMin: 3, loc: 'deepsea', label: 'Deep Sea' },
 ];
 
 const ROD_STATS = {

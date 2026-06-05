@@ -3,6 +3,7 @@ const { getUser } = require('../../utils/economy');
 const { formatNumber } = require('../../utils/format');
 const { hasItem, consumeItem } = require('../../utils/inventory');
 const { COOLDOWN, CATCH_ITEMS, TIERS } = require('./catalog');
+const { ROD_TIERS } = require('../shop/items');
 const {
     rand, getTier, getRod, getBucket, bucketCount,
     randomWeight, displayWeight, normalizeBucketEntries,
@@ -15,10 +16,11 @@ function limitLines(lines, max = 18) {
     return [...lines.slice(0, max), `...and ${lines.length - max} more`];
 }
 
-function tierFromLoc(loc, user) {
-    const found = TIERS.find(t => t.loc === loc);
-    if (found && user.balance + user.bank >= found.min) return found;
-    return getTier(user.balance + user.bank);
+function tierFromLoc(loc, rod) {
+    const found  = TIERS.find(t => t.loc === loc);
+    const rodIdx = ROD_TIERS.indexOf(rod?.id ?? '');
+    if (found && rodIdx >= found.rodMin) return found;
+    return getTier(rod?.id);
 }
 
 async function handleCast(interaction) {
@@ -28,8 +30,8 @@ async function handleCast(interaction) {
     const bucket = getBucket(user);
     if (!rod || !bucket) return;
 
-    const loc    = interaction.customId.split(':')[1] ?? getTier(user.balance + user.bank).loc;
-    const tier   = tierFromLoc(loc, user);
+    const loc    = interaction.customId.split(':')[1] ?? getTier(rod.id).loc;
+    const tier   = tierFromLoc(loc, rod);
     const safeLoc = tier.loc;
     const footer = statusFooter(rod, tier, user, bucket);
     const msg    = interaction.message;
@@ -103,7 +105,7 @@ async function handleReel(interaction) {
     const bucket = getBucket(user);
     if (!rod || !bucket) return;
 
-    const tier   = TIERS.find(t => t.loc === tierLoc) ?? getTier(user.balance + user.bank);
+    const tier   = TIERS.find(t => t.loc === tierLoc) ?? getTier(rod.id);
     const footer = statusFooter(rod, tier, user, bucket);
     const msg    = interaction.message;
 
@@ -184,7 +186,7 @@ async function handleCut(interaction) {
     const bucket = getBucket(user);
     if (!rod || !bucket) return;
 
-    const tier = TIERS.find(t => t.loc === loc) ?? getTier(user.balance + user.bank);
+    const tier = TIERS.find(t => t.loc === loc) ?? getTier(rod.id);
     const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
     await interaction.message.edit(buildPanel('Fishing', 'Line cut.', statusFooter(rod, tier, user, bucket), mainButtons(sell, bucketCount(user), loc)));
 }
@@ -272,7 +274,7 @@ async function handleBack(interaction) {
     const bucket = getBucket(user);
     if (!rod || !bucket) return;
 
-    const tier = TIERS.find(t => t.loc === loc) ?? getTier(user.balance + user.bank);
+    const tier = TIERS.find(t => t.loc === loc) ?? getTier(rod.id);
     const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
 
     await interaction.message.edit(buildPanel(

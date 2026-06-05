@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getUser } = require('../../utils/economy');
-const { formatNumber } = require('../../utils/format');
+const { ITEMS, ROD_TIERS } = require('../shop/items');
 const { getRod, getBucket, bucketCount, calcSellTotal, getTier, buildPanel, mainButtons, statusFooter } = require('./utils');
 const { handleCast, handleReel, handleCut, handleSell, handleBucket, handleBack } = require('./handlers');
 const { CATCH_ITEMS, TIERS } = require('./catalog');
@@ -10,12 +10,12 @@ module.exports = {
         .setName('fish')
         .setDescription('Go fishing - requires a rod and bucket from the shop')
         .addStringOption(o =>
-            o.setName('location').setDescription('Where to fish (defaults to highest zone available)').setRequired(false)
+            o.setName('location').setDescription('Where to fish (defaults to highest zone your rod can reach)').setRequired(false)
                 .addChoices(
-                    { name: 'Pond',              value: 'pond'    },
-                    { name: 'River ($10k)',       value: 'river'   },
-                    { name: 'Ocean ($50k)',       value: 'ocean'   },
-                    { name: 'Deep Sea ($200k)',   value: 'deepsea' },
+                    { name: 'Pond',                   value: 'pond'    },
+                    { name: 'River (Basic Rod+)',      value: 'river'   },
+                    { name: 'Ocean (Upgraded Rod+)',   value: 'ocean'   },
+                    { name: 'Deep Sea (Super Rod+)',   value: 'deepsea' },
                 )
         ),
 
@@ -28,14 +28,16 @@ module.exports = {
         if (!bucket) return interaction.reply({ content: 'You need a bucket. Start with a Wooden Bucket ($500) from `/shop`.', ephemeral: true });
 
         const chosenLoc = interaction.options.getString('location');
-        const maxTier   = getTier(user.balance + user.bank);
+        const maxTier   = getTier(rod.id);
         let tier = maxTier;
 
         if (chosenLoc) {
-            const req = TIERS.find(t => t.loc === chosenLoc);
-            if (req && user.balance + user.bank < req.min) {
+            const req    = TIERS.find(t => t.loc === chosenLoc);
+            const rodIdx = ROD_TIERS.indexOf(rod.id);
+            if (req && rodIdx < req.rodMin) {
+                const reqRodName = ITEMS[ROD_TIERS[req.rodMin]]?.name ?? 'a better rod';
                 return interaction.reply({
-                    content: `❌ You need **$${formatNumber(req.min)}** total wealth to fish at the **${req.label}**.`,
+                    content: `❌ You need a **${reqRodName}** or better to fish at the **${req.label}**.`,
                     ephemeral: true,
                 });
             }

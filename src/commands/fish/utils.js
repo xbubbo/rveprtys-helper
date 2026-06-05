@@ -6,14 +6,14 @@ const { formatNumber } = require('../../utils/format');
 const { hasItem } = require('../../utils/inventory');
 const { ITEMS, ROD_TIERS, BUCKET_TIERS } = require('../shop/items');
 const FishMarket = require('../../models/fishmarket');
-const { COOLDOWN, CATCH_ITEMS, WEIGHT_STATS, TABLES, ROD_STATS } = require('./catalog');
+const { COOLDOWN, CATCH_ITEMS, WEIGHT_STATS, TABLES, TIERS, ROD_STATS } = require('./catalog');
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-function getTier(wealth) {
-    const { TIERS } = require('./catalog');
+function getTier(rodId) {
+    const rodIdx = ROD_TIERS.indexOf(rodId ?? '');
     let t = TIERS[0];
-    for (const x of TIERS) { if (wealth >= x.min) t = x; }
+    for (const x of TIERS) { if (rodIdx >= x.rodMin) t = x; }
     return t;
 }
 

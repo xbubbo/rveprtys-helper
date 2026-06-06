@@ -1,12 +1,15 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getUser } = require('../../utils/economy');
-const browse = require('./browse');
-const buy    = require('./buy');
-const sell   = require('./sell');
+const browse              = require('./browse');
+const buy                 = require('./buy');
+const sell                = require('./sell');
+const { handlePage }      = browse;
 
 const SUBS = { browse, buy, sell };
 
 module.exports = {
+    handlePage,
+
     data: new SlashCommandBuilder()
         .setName('shop')
         .setDescription('Buy or sell items and view your inventory')

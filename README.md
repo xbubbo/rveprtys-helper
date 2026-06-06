@@ -6,20 +6,12 @@ and murder your bloodline.
 best economy bot with the best bugs fr fr
 
 # 🏆 Hall of Fame 🏆
-
 ## 🔨 Developers
-
-RVEPRTY
-
-## ⚒️ Contributer Developer
-
-Bubbo
-
-
+- RVEPRTY
+- [Bubbo](https://github.com/xbubbo)
+## ⚒️ Contributors
+- [Bubbo](https://github.com/xbubbo)
 ## 💻 Beta Tester
-
-vorg
-
+- vorg
 ## 🤝  Partners
-
 None

@@ -2,8 +2,8 @@ const { ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getUser } = require('../../utils/economy');
 const { formatNumber } = require('../../utils/format');
 const { hasItem, consumeItem } = require('../../utils/inventory');
-const { COOLDOWN, CATCH_ITEMS, TIERS } = require('./catalog');
-const { ROD_TIERS } = require('../shop/items');
+const { COOLDOWN, CATCH_ITEMS, TIERS, ROD_STATS } = require('./catalog');
+const { ITEMS, ROD_TIERS } = require('../shop/items');
 const {
     rand, getTier, getRod, getBucket, bucketCount,
     randomWeight, displayWeight, normalizeBucketEntries,
@@ -59,12 +59,6 @@ async function handleCast(interaction) {
     const hasBait = hasItem(user, 'fishing_bait');
     await user.save();
 
-    if (rodBroke) {
-        const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
-        await msg.edit(buildPanel('Fishing', `Your **${rod.name}** broke. Buy a new one from \`/shop\`.`, footer, mainButtons(sell, cnt, safeLoc)));
-        return;
-    }
-
     await msg.edit(buildPanel('Fishing', `Casting at the **${tier.label}**...`, footer));
     await new Promise(r => setTimeout(r, rand(2000, 4500)));
 
@@ -74,14 +68,15 @@ async function handleCast(interaction) {
 
     if (nothing) {
         const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
-        await msg.edit(buildPanel('Fishing', 'Nothing on the line.', footer, mainButtons(sell, cnt, safeLoc)));
+        const body = 'Nothing on the line.' + (rodBroke ? `\n\n*Your **${rod.name}** broke - buy a new one from \`/shop\`.*` : '');
+        await msg.edit(buildPanel('Fishing', body, footer, mainButtons(sell, cnt, safeLoc)));
         return;
     }
 
     const itemOnLine = isBomb ? 'bomb' : pickItem(safeLoc, rod.stats.skip, hasBait);
     const reelWindow = rand(2500, 4000);
     const expiresAt  = Date.now() + reelWindow;
-    const reelId     = `fish_reel:${safeLoc}:${itemOnLine}:${expiresAt}:${hasBait ? 1 : 0}`;
+    const reelId     = `fish_reel:${safeLoc}:${itemOnLine}:${expiresAt}:${hasBait ? 1 : 0}:${rod.id}`;
     const cutId      = `fish_cut:${safeLoc}:${expiresAt}`;
 
     const biteButtons = [
@@ -97,17 +92,24 @@ async function handleCast(interaction) {
 
 async function handleReel(interaction) {
     await interaction.deferUpdate();
-    const [, tierLoc, itemOnLine, expiresStr, baitStr] = interaction.customId.split(':');
+    const [, tierLoc, itemOnLine, expiresStr, baitStr, castRodId] = interaction.customId.split(':');
     const expiresAt = parseInt(expiresStr);
 
-    const user   = await getUser(interaction.user.id, interaction.guild.id);
-    const rod    = getRod(user);
-    const bucket = getBucket(user);
-    if (!rod || !bucket) return;
+    const user       = await getUser(interaction.user.id, interaction.guild.id);
+    const rod        = getRod(user);
+    const bucket     = getBucket(user);
+    if (!bucket) return;
 
-    const tier   = TIERS.find(t => t.loc === tierLoc) ?? getTier(rod.id);
-    const footer = statusFooter(rod, tier, user, bucket);
-    const msg    = interaction.message;
+    // Use cast rod stats even if the rod broke and was removed from inventory
+    const castRodStats = (castRodId && ROD_STATS[castRodId]) ?? rod?.stats;
+    const rodBroke     = castRodId ? !hasItem(user, castRodId) : false;
+    const castRodName  = (castRodId && ITEMS[castRodId]?.name) ?? rod?.name ?? 'your rod';
+    const brokeNote    = rodBroke ? `\n\n*Your **${castRodName}** broke - buy a new one from \`/shop\`.*` : '';
+
+    const activeRod = rod; // may be null if rod broke and no backup
+    const tier      = TIERS.find(t => t.loc === tierLoc) ?? getTier(activeRod?.id);
+    const footer    = statusFooter(activeRod, tier, user, bucket);
+    const msg       = interaction.message;
 
     if (Date.now() > expiresAt) {
         const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
@@ -135,9 +137,9 @@ async function handleReel(interaction) {
         return;
     }
 
-    if (Math.random() < rod.stats.snapChance) {
+    if (Math.random() < (castRodStats?.snapChance ?? 0.08)) {
         const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
-        await msg.edit(buildPanel('Fishing', 'Line snapped.', footer, mainButtons(sell, bucketCount(user), tierLoc)));
+        await msg.edit(buildPanel('Fishing', 'Line snapped.' + brokeNote, footer, mainButtons(sell, bucketCount(user), tierLoc)));
         return;
     }
 
@@ -145,10 +147,10 @@ async function handleReel(interaction) {
     if (hadBait) consumeItem(user, 'fishing_bait');
 
     let catchCount = 1;
-    if (rod.stats.multiChance > 0 && Math.random() < rod.stats.multiChance) catchCount = rod.stats.multiCount;
+    if ((castRodStats?.multiChance ?? 0) > 0 && Math.random() < castRodStats.multiChance) catchCount = castRodStats.multiCount;
     catchCount = Math.min(catchCount, bucket.slots - bucketCount(user));
 
-    const bonusSkip = Math.max(0, rod.stats.skip - 1);
+    const bonusSkip = Math.max(0, (castRodStats?.skip ?? 0) - 1);
 
     const caught = [];
     for (let k = 0; k < catchCount; k++) {
@@ -172,9 +174,9 @@ async function handleReel(interaction) {
     const sellTotal = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
     const full      = newCount >= bucket.slots;
     const title     = isMonster ? 'Fishing  -  Monster Catch' : catchCount > 1 ? `Fishing  -  ${catchCount}x Catch` : 'Fishing';
-    const body      = lines.join('\n') + `\n\n${newCount}/${bucket.slots} in bucket` + (full ? '\nBucket full. Sell before casting again.' : '');
+    const body      = lines.join('\n') + `\n\n${newCount}/${bucket.slots} in bucket` + (full ? '\nBucket full. Sell before casting again.' : '') + brokeNote;
 
-    await msg.edit(buildPanel(title, body, statusFooter(rod, tier, user, bucket), mainButtons(sellTotal, newCount, tierLoc)));
+    await msg.edit(buildPanel(title, body, statusFooter(activeRod, tier, user, bucket), mainButtons(sellTotal, newCount, tierLoc)));
 }
 
 async function handleCut(interaction) {

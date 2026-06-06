@@ -58,16 +58,10 @@ module.exports = {
         // Deduct durability - use || so 0 falls back to item.durability (handles new pickaxe with unset field)
         user.pickaxeDurability = Math.max(0, ((user.pickaxeDurability || pickaxe.durability) - 1));
         const pickBroke = user.pickaxeDurability === 0;
-        if (pickBroke) user.inventory = (user.inventory || []).filter(i => i.item !== pickaxe.id);
 
         const useBomb = consumeItem(user, 'mining_bomb');
         await user.save();
 
-        if (pickBroke) {
-            return interaction.reply({ content: `Your **${pickaxe.name}** broke on that session. Buy a new one from \`/shop\`.`, ephemeral: true });
-        }
-
-        // Only charge cooldown if the session actually runs
         cooldowns.mine.set(cdKey, now);
 
         const tiles    = buildTiles(tier.dist);
@@ -95,6 +89,8 @@ module.exports = {
             useBomb ? 'Bomb used' : null,
         ].filter(Boolean).join(' · ');
 
+        const brokeNote = pickBroke ? `\n\n*Your **${pickaxe.name}** broke - buy a new one from \`/shop\`.*` : '';
+
         const mineBody = (state = 'mining') => {
             if (state === 'mining') return (
                 `Ore found: **$${formatNumber(earned)}**` +
@@ -102,9 +98,9 @@ module.exports = {
                 '\n\nClick tiles to mine. Cash out anytime.' +
                 (nextTier ? `\n\n*Upgrade to **${nextPickaxe?.name ?? 'the next pickaxe'}** to mine the **${nextTier.label}**.*` : '')
             );
-            if (state === 'cashout') return `You hauled **$${formatNumber(earned)}** worth of ore out of the ${tier.label}.`;
-            if (state === 'cleared') return `Every vein mined in the ${tier.label}!\n\nTotal haul: **$${formatNumber(earned)}**`;
-            if (state === 'timeout') return `Session timed out. Ore collected: **$${formatNumber(earned)}**`;
+            if (state === 'cashout') return `You hauled **$${formatNumber(earned)}** worth of ore out of the ${tier.label}.` + brokeNote;
+            if (state === 'cleared') return `Every vein mined in the ${tier.label}!\n\nTotal haul: **$${formatNumber(earned)}**` + brokeNote;
+            if (state === 'timeout') return `Session timed out. Ore collected: **$${formatNumber(earned)}**` + brokeNote;
         };
 
         const mineTitle = (state = 'mining') => ({
@@ -117,10 +113,9 @@ module.exports = {
         const finish = async (state, j = null) => {
             gameOver = true;
             gameCollector.stop(state);
-            if (earned > 0) {
-                user.balance = parseFloat((user.balance + earned).toFixed(2));
-                await user.save();
-            }
+            if (pickBroke) user.inventory = (user.inventory || []).filter(i => i.item !== pickaxe.id);
+            if (earned > 0) user.balance = parseFloat((user.balance + earned).toFixed(2));
+            await user.save();
             const footer = earned > 0 ? `New balance: $${formatNumber(user.balance)}` : null;
             const panel  = buildPanel(mineTitle(state), mineBody(state), footer, buildGrid(tiles, revealed, earned, true, true));
             if (j) await j.update(panel);

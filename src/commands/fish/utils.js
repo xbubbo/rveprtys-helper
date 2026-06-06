@@ -152,7 +152,8 @@ function statusFooter(rod, tier, user, bucket) {
     const castLine = Date.now() < (user.lastFishCast ?? 0) + COOLDOWN
         ? `Next cast <t:${readyAt}:R>`
         : 'Ready to cast';
-    return `${tier.label}  ·  ${rod.name} ${user.fishRodDurability ?? 0} uses left  ·  ${bucketCount(user)}/${bucket.slots} in bucket  ·  ${castLine}`;
+    const rodPart  = rod ? `${rod.name} ${user.fishRodDurability ?? 0} uses left  ·  ` : '';
+    return `${tier.label}  ·  ${rodPart}${bucketCount(user)}/${bucket.slots} in bucket  ·  ${castLine}`;
 }
 
 module.exports = {

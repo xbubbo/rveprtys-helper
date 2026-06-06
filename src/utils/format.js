@@ -13,7 +13,8 @@ function parseAmount(str, balance) {
     if (k) return Math.floor(parseFloat(k[1]) * 1_000);
     const m = s.match(/^(\d+(?:\.\d+)?)m$/);
     if (m) return Math.floor(parseFloat(m[1]) * 1_000_000);
-    return Math.floor(parseFloat(s));
+    const n = Math.floor(parseFloat(s));
+    return Number.isSafeInteger(n) ? n : NaN;
 }
 
 module.exports = { formatNumber, stockPrice, parseAmount };

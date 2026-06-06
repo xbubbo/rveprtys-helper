@@ -1,52 +1,43 @@
 const {
     ContainerBuilder, TextDisplayBuilder, SeparatorBuilder,
-    ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
+    ActionRowBuilder, ButtonBuilder, ButtonStyle,
+    StringSelectMenuBuilder, MessageFlags,
 } = require('discord.js');
-const { formatNumber }                          = require('../../utils/format');
-const { getUser }                               = require('../../utils/economy');
-const { hasItem }                               = require('../../utils/inventory');
+const { formatNumber } = require('../../utils/format');
+const { getUser }      = require('../../utils/economy');
+const { hasItem }      = require('../../utils/inventory');
 const { ITEMS, ROD_TIERS, BUCKET_TIERS, PICKAXE_TIERS } = require('./items');
 
 const SELL_RATE = 0.25;
 
-const PAGES = [
-    {
-        id: 'general',
-        label: '🏪 General',
+const PAGES = {
+    general: {
+        label: 'General',
+        description: 'General items',
         keys: ['lifesaver'],
     },
-    {
-        id: 'fishing',
-        label: '🎣 Fishing',
+    fishing: {
+        label: 'Fishing',
+        description: 'Rods, bait and buckets',
         keys: [
             'fishing_rod_wooden', 'fishing_rod_basic', 'fishing_rod_upgraded',
             'fishing_rod_super', 'fishing_rod_legendary', 'fishing_bait',
             'bucket_wooden', 'bucket_iron', 'bucket_gold', 'bucket_diamond', 'bucket_crystal',
         ],
     },
-    {
-        id: 'mining',
-        label: '⛏️ Mining',
+    mining: {
+        label: 'Mining',
+        description: 'Pickaxes, backpack and bombs',
         keys: ['pickaxe_wooden', 'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'pickaxe_netherite', 'mining_backpack', 'mining_bomb'],
     },
-    {
-        id: 'streaming',
-        label: '📺 Streaming',
+    streaming: {
+        label: 'Streaming',
+        description: 'Streaming setup and upgrades',
         keys: ['keyboard_mouse', 'camera', 'ring_light', 'microphone', 'dedicated_server'],
     },
-    {
-        id: 'gear',
-        label: '⚙️ My Gear',
-        keys: null,
-    },
-];
+};
 
-function getHighestOwned(user, tierArr) {
-    for (let i = tierArr.length - 1; i >= 0; i--) {
-        if (hasItem(user, tierArr[i])) return tierArr[i];
-    }
-    return null;
-}
+const PAGE_IDS = Object.keys(PAGES);
 
 function itemLine(key, user) {
     const item = ITEMS[key];
@@ -68,46 +59,23 @@ function itemLine(key, user) {
     return `${item.emoji} **${item.name}**${badge} - ${price}\n${reqLine}${item.description}`;
 }
 
-function buildGearBody(user) {
-    const sections = [];
-
-    const rodId    = getHighestOwned(user, ROD_TIERS);
-    const bucketId = getHighestOwned(user, BUCKET_TIERS);
-    if (rodId || bucketId) {
-        const rodLine    = rodId    ? `Rod: **${ITEMS[rodId].name}** - ${user.fishRodDurability ?? 0} uses left` : 'Rod: *none*';
-        const bucketLine = bucketId ? `Bucket: **${ITEMS[bucketId].name}**` : 'Bucket: *none*';
-        sections.push(`🎣 **Fishing**\n${rodLine}\n${bucketLine}`);
-    }
-
-    const pickaxeId = getHighestOwned(user, PICKAXE_TIERS);
-    if (pickaxeId || hasItem(user, 'mining_backpack')) {
-        const pickLine = pickaxeId ? `Pickaxe: **${ITEMS[pickaxeId].name}** - ${user.pickaxeDurability ?? 0} uses left` : 'Pickaxe: *none*';
-        const backLine = hasItem(user, 'mining_backpack') ? '\nBackpack: ✅' : '';
-        sections.push(`⛏️ **Mining**\n${pickLine}${backLine}`);
-    }
-
-    const streamOwned = ['keyboard_mouse', 'camera', 'ring_light', 'microphone', 'dedicated_server'].filter(k => hasItem(user, k));
-    if (streamOwned.length > 0) {
-        sections.push(`📺 **Streaming**\n${streamOwned.map(k => ITEMS[k].name).join('  ·  ')}`);
-    }
-
-    const consumOwned = ['lifesaver', 'fishing_bait', 'mining_bomb'].filter(k => hasItem(user, k));
-    if (consumOwned.length > 0) {
-        const lines = consumOwned.map(k => {
-            const qty = user.inventory?.find(i => i.item === k)?.quantity ?? 0;
-            return `${ITEMS[k].emoji} **${ITEMS[k].name}** ×${qty}`;
-        });
-        sections.push(`🎒 **Consumables**\n${lines.join('  ·  ')}`);
-    }
-
-    return sections.length > 0
-        ? sections.join('\n\n')
-        : '*No equipment owned yet. Browse the other pages to get started.*';
+function buildSelectRow(currentId) {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('shop_select')
+            .setPlaceholder('Browse a category...')
+            .addOptions(PAGE_IDS.map(id => ({
+                label:       PAGES[id].label,
+                value:       id,
+                description: PAGES[id].description,
+                default:     id === currentId,
+            })))
+    );
 }
 
-function buildActionButtons(pageIndex, user) {
-    const page = PAGES[pageIndex];
-    if (!page.keys) return null;
+function buildActionRow(pageId, user) {
+    const page = PAGES[pageId];
+    if (!page) return null;
 
     const buyButtons  = [];
     const sellButtons = [];
@@ -121,21 +89,21 @@ function buildActionButtons(pageIndex, user) {
         if (item.consumable) {
             buyButtons.push(
                 new ButtonBuilder()
-                    .setCustomId(`shop_buy:${key}:${pageIndex}`)
+                    .setCustomId(`shop_buy:${key}:${pageId}`)
                     .setLabel(`Buy ${item.name}`)
                     .setStyle(ButtonStyle.Success)
             );
         } else if (qty === 0 && !locked) {
             buyButtons.push(
                 new ButtonBuilder()
-                    .setCustomId(`shop_buy:${key}:${pageIndex}`)
+                    .setCustomId(`shop_buy:${key}:${pageId}`)
                     .setLabel(`Buy ${item.name}`)
                     .setStyle(ButtonStyle.Primary)
             );
         } else if (qty > 0) {
             sellButtons.push(
                 new ButtonBuilder()
-                    .setCustomId(`shop_sell:${key}:${pageIndex}`)
+                    .setCustomId(`shop_sell:${key}:${pageId}`)
                     .setLabel(`Sell ${item.name}`)
                     .setStyle(ButtonStyle.Danger)
             );
@@ -146,62 +114,46 @@ function buildActionButtons(pageIndex, user) {
     return all.length > 0 ? new ActionRowBuilder().addComponents(...all) : null;
 }
 
-function buildPage(pageIndex, user) {
-    const page = PAGES[pageIndex];
-
-    const body = page.keys
-        ? page.keys.map(k => itemLine(k, user)).filter(Boolean).join('\n\n')
-        : buildGearBody(user);
-
-    const tabRow = new ActionRowBuilder().addComponents(
-        PAGES.map((p, i) =>
-            new ButtonBuilder()
-                .setCustomId(`shop_page:${i}`)
-                .setLabel(p.label)
-                .setStyle(i === pageIndex ? ButtonStyle.Primary : ButtonStyle.Secondary)
-                .setDisabled(i === pageIndex)
-        )
-    );
-
-    const actionRow = buildActionButtons(pageIndex, user);
+function buildPage(pageId, user) {
+    const page = PAGES[pageId] ?? PAGES.general;
+    const body = page.keys.map(k => itemLine(k, user)).filter(Boolean).join('\n\n');
 
     const container = new ContainerBuilder()
-        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${page.label}`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### 🏪 Shop - ${page.label}`))
         .addSeparatorComponents(new SeparatorBuilder())
         .addTextDisplayComponents(new TextDisplayBuilder().setContent(body))
         .addSeparatorComponents(new SeparatorBuilder())
         .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# /buy <item>  ·  ?buy <item>  ·  /sell <item>  ·  ?sell <item>`))
-        .addActionRowComponents(tabRow);
+        .addActionRowComponents(buildSelectRow(pageId));
 
+    const actionRow = buildActionRow(pageId, user);
     if (actionRow) container.addActionRowComponents(actionRow);
 
     return { flags: MessageFlags.IsComponentsV2, components: [container] };
 }
 
 async function execute(interaction, user) {
-    return interaction.reply(buildPage(0, user));
+    return interaction.reply(buildPage('general', user));
 }
 
-async function handlePage(interaction) {
+async function handleShopSelect(interaction) {
     await interaction.deferUpdate();
-    const pageIndex = parseInt(interaction.customId.split(':')[1]);
-    if (isNaN(pageIndex) || pageIndex < 0 || pageIndex >= PAGES.length) return;
+    const pageId = interaction.values?.[0];
+    if (!PAGES[pageId]) return;
     const user = await getUser(interaction.user.id, interaction.guild.id);
-    await interaction.message.edit(buildPage(pageIndex, user));
+    await interaction.message.edit(buildPage(pageId, user));
 }
 
 async function handleShopBuy(interaction) {
-    const [, key, pageStr] = interaction.customId.split(':');
-    const pageIndex        = parseInt(pageStr);
-    const item             = ITEMS[key];
+    const [, key, pageId] = interaction.customId.split(':');
+    const item = ITEMS[key];
     if (!item) return interaction.reply({ content: '❌ Invalid item.', ephemeral: true });
 
     await interaction.deferUpdate();
     const user = await getUser(interaction.user.id, interaction.guild.id);
 
     if (item.requires && !hasItem(user, item.requires)) {
-        const req = ITEMS[item.requires];
-        await interaction.followUp({ content: `❌ You need a **${req?.name ?? item.requires}** first.`, ephemeral: true });
+        await interaction.followUp({ content: `❌ You need a **${ITEMS[item.requires]?.name ?? item.requires}** first.`, ephemeral: true });
         return;
     }
     if (!item.consumable && hasItem(user, key)) {
@@ -225,13 +177,12 @@ async function handleShopBuy(interaction) {
     if (PICKAXE_TIERS.includes(key) && item.durability) user.pickaxeDurability  = item.durability;
     await user.save();
 
-    await interaction.message.edit(buildPage(isNaN(pageIndex) ? 0 : pageIndex, user));
+    await interaction.message.edit(buildPage(PAGES[pageId] ? pageId : 'general', user));
 }
 
 async function handleShopSell(interaction) {
-    const [, key, pageStr] = interaction.customId.split(':');
-    const pageIndex        = parseInt(pageStr);
-    const item             = ITEMS[key];
+    const [, key, pageId] = interaction.customId.split(':');
+    const item = ITEMS[key];
 
     await interaction.deferUpdate();
     const user = await getUser(interaction.user.id, interaction.guild.id);
@@ -251,8 +202,8 @@ async function handleShopSell(interaction) {
     user.balance    = parseFloat((user.balance + sellPrice).toFixed(2));
     await user.save();
 
-    await interaction.message.edit(buildPage(isNaN(pageIndex) ? 0 : pageIndex, user));
+    await interaction.message.edit(buildPage(PAGES[pageId] ? pageId : 'general', user));
     await interaction.followUp({ content: `${item.emoji} Sold **${item.name}** for **$${formatNumber(sellPrice)}**.`, ephemeral: true });
 }
 
-module.exports = { execute, handlePage, handleShopBuy, handleShopSell };
+module.exports = { execute, handleShopSelect, handleShopBuy, handleShopSell };

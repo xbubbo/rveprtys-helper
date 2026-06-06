@@ -180,7 +180,7 @@ function buildActionRows(pageId, user, mode = 'buy') {
             buttons.push(
                 new ButtonBuilder()
                     .setCustomId(`shop_sell:${key}:${pageId}`)
-                    .setLabel(`Sell ${item.name}`)
+                    .setLabel(item.name)
                     .setStyle(ButtonStyle.Danger)
                     .setDisabled(qty <= 0)
             );
@@ -190,7 +190,7 @@ function buildActionRows(pageId, user, mode = 'buy') {
         buttons.push(
             new ButtonBuilder()
                 .setCustomId(`shop_buy:${key}:${pageId}`)
-                .setLabel(`Buy ${item.name}`)
+                .setLabel(item.name)
                 .setStyle(item.consumable ? ButtonStyle.Success : ButtonStyle.Primary)
                 .setDisabled(locked || (!item.consumable && qty > 0))
         );

@@ -12,6 +12,6 @@ best economy bot with the best bugs fr fr
 ## ⚒️ Contributors
 - [Bubbo](https://github.com/xbubbo)
 ## 💻 Beta Tester
-- vorg
+- vorg (UBG Creator Hub)
 ## 🤝  Partners
 None

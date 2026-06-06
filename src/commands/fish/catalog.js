@@ -110,7 +110,7 @@ const ROD_STATS = {
     fishing_rod_wooden:   { skip: 0, snapChance: 0.08,  multiChance: 0,    multiCount: 1 },
     fishing_rod_basic:    { skip: 2, snapChance: 0.04,  multiChance: 0,    multiCount: 1 },
     fishing_rod_upgraded: { skip: 4, snapChance: 0.02,  multiChance: 0.15, multiCount: 2 },
-    fishing_rod_super:    { skip: 6, snapChance: 0.005, multiChance: 0.25, multiCount: 3 },
+    fishing_rod_super:    { skip: 5, snapChance: 0.005, multiChance: 0.18, multiCount: 3 },
     fishing_rod_legendary:{ skip: 7, snapChance: 0.001, multiChance: 0.40, multiCount: 4 },
 };
 

@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const Stock = require('../../models/stock');
-const { formatNumber } = require('../../utils/format');
+const { stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
     const ticker = interaction.options.getString('ticker').toUpperCase();
@@ -11,7 +11,7 @@ async function execute(interaction) {
     const chart   = history.map((p, i) => {
         const prev  = history[i - 1] ?? p;
         const arrow = p > prev ? '▲' : p < prev ? '▼' : '-';
-        return `${arrow} $${formatNumber(p)}`;
+        return `${arrow} $${stockPrice(p)}`;
     }).join('\n');
 
     const first         = history[0];
@@ -25,7 +25,7 @@ async function execute(interaction) {
             .setDescription(chart || 'No history yet.')
             .setColor(overallChange >= 0 ? 0x00FF99 : 0xFF4500)
             .addFields(
-                { name: 'Current Price',   value: `$${formatNumber(stock.price)}`,                              inline: true },
+                { name: 'Current Price',   value: `$${stockPrice(stock.price)}`,                              inline: true },
                 { name: 'Overall Change',  value: `${overallChange >= 0 ? '+' : ''}${overallPct}%`,            inline: true },
             )
             .setFooter({ text: 'Last 10 price points' })

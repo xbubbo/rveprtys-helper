@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const Stock     = require('../../models/stock');
 const Portfolio = require('../../models/portfolio');
-const { formatNumber } = require('../../utils/format');
+const { formatNumber, stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
     const portfolio = await Portfolio.findOne({ userId: interaction.user.id, guildId: interaction.guild.id });
@@ -19,7 +19,7 @@ async function execute(interaction) {
         const profit       = currentValue - costBasis;
         totalValue += currentValue;
         totalCost  += costBasis;
-        rows.push(`${profit >= 0 ? '▲' : '▼'} \`${h.ticker}\` x${formatNumber(h.shares)} - $${formatNumber(currentValue)} (${profit >= 0 ? '+' : ''}$${formatNumber(profit)})`);
+        rows.push(`${profit >= 0 ? '▲' : '▼'} \`${h.ticker}\` x${formatNumber(h.shares)} - $${stockPrice(currentValue)} (${profit >= 0 ? '+' : ''}$${stockPrice(profit)})`);
     }
 
     const totalProfit = totalValue - totalCost;
@@ -30,8 +30,8 @@ async function execute(interaction) {
             .setDescription(rows.join('\n'))
             .setColor(totalProfit >= 0 ? 0x00FF99 : 0xFF4500)
             .addFields(
-                { name: 'Total Value',      value: `$${formatNumber(totalValue)}`,                              inline: true },
-                { name: 'Total Profit/Loss', value: `${totalProfit >= 0 ? '+' : ''}$${formatNumber(totalProfit)}`, inline: true },
+                { name: 'Total Value',      value: `$${stockPrice(totalValue)}`,                              inline: true },
+                { name: 'Total Profit/Loss', value: `${totalProfit >= 0 ? '+' : ''}$${stockPrice(totalProfit)}`, inline: true },
             )
             .setFooter({ text: 'Economic Bomb Stock Market' })
             .setTimestamp()],

@@ -2,7 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const Stock     = require('../../models/stock');
 const Portfolio = require('../../models/portfolio');
 const User      = require('../../models/user');
-const { formatNumber } = require('../../utils/format');
+const { formatNumber, stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
     const ticker    = interaction.options.getString('ticker').toUpperCase();
@@ -17,7 +17,7 @@ async function execute(interaction) {
     let shares;
     if (!sharesStr || sharesStr.toLowerCase() === 'max') {
         shares = Math.floor(user.balance / stock.price);
-        if (shares <= 0) return interaction.reply({ content: `❌ You can't afford even 1 share of \`${ticker}\` at $${formatNumber(stock.price)}.`, ephemeral: true });
+        if (shares <= 0) return interaction.reply({ content: `❌ You can't afford even 1 share of \`${ticker}\` at $${stockPrice(stock.price)}.`, ephemeral: true });
     } else {
         shares = parseInt(sharesStr);
         if (isNaN(shares) || shares <= 0) return interaction.reply({ content: '❌ Shares must be a whole number.', ephemeral: true });
@@ -25,7 +25,7 @@ async function execute(interaction) {
 
     const totalCost = parseFloat((stock.price * shares).toFixed(2));
     if (user.balance < totalCost)
-        return interaction.reply({ content: `❌ You need **$${formatNumber(totalCost)}** but only have **$${formatNumber(user.balance)}**.`, ephemeral: true });
+        return interaction.reply({ content: `❌ You need **$${stockPrice(totalCost)}** but only have **$${formatNumber(user.balance)}**.`, ephemeral: true });
 
     user.balance = parseFloat((user.balance - totalCost).toFixed(2));
     await user.save();
@@ -55,8 +55,8 @@ async function execute(interaction) {
             .addFields(
                 { name: 'Stock',           value: `${stock.name} (\`${ticker}\`)`, inline: true },
                 { name: 'Shares',          value: formatNumber(shares),             inline: true },
-                { name: 'Price Per Share', value: `$${formatNumber(stock.price)}`,  inline: true },
-                { name: 'Total Cost',      value: `$${formatNumber(totalCost)}`,    inline: true },
+                { name: 'Price Per Share', value: `$${stockPrice(stock.price)}`,  inline: true },
+                { name: 'Total Cost',      value: `$${stockPrice(totalCost)}`,    inline: true },
                 { name: 'Cash Remaining',  value: `$${formatNumber(user.balance)}`, inline: true },
             )
             .setFooter({ text: 'Economic Bomb Stock Market' })

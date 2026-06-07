@@ -2,7 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const Stock     = require('../../models/stock');
 const Portfolio = require('../../models/portfolio');
 const User      = require('../../models/user');
-const { formatNumber } = require('../../utils/format');
+const { formatNumber, stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
     const ticker    = interaction.options.getString('ticker').toUpperCase();
@@ -50,9 +50,9 @@ async function execute(interaction) {
             .addFields(
                 { name: 'Stock',            value: `${stock.name} (\`${ticker}\`)`,                        inline: true },
                 { name: 'Shares Sold',      value: formatNumber(shares),                                   inline: true },
-                { name: 'Price Per Share',  value: `$${formatNumber(sellPrice)}`,                        inline: true },
-                { name: 'Total Earned',     value: `$${formatNumber(totalEarned)}`,                        inline: true },
-                { name: 'Profit/Loss',      value: `${profit >= 0 ? '+' : ''}$${formatNumber(profit)}`,   inline: true },
+                { name: 'Price Per Share',  value: `$${stockPrice(sellPrice)}`,                        inline: true },
+                { name: 'Total Earned',     value: `$${stockPrice(totalEarned)}`,                        inline: true },
+                { name: 'Profit/Loss',      value: `${profit >= 0 ? '+' : ''}$${stockPrice(profit)}`,   inline: true },
                 { name: 'New Cash Balance', value: `$${formatNumber(user.balance)}`,                       inline: true },
             )
             .setFooter({ text: 'Economic Bomb Stock Market' })

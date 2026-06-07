@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const Stock = require('../../models/stock');
-const { formatNumber } = require('../../utils/format');
+const { stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
     const stocks = await Stock.find({ guildId: interaction.guild.id }).sort({ ticker: 1 });
@@ -12,7 +12,7 @@ async function execute(interaction) {
         const change = s.price - prev;
         const pct    = ((change / prev) * 100).toFixed(2);
         const circle = change > 0 ? '🟢' : change < 0 ? '🔴' : '⚪';
-        return `${circle} \`${s.ticker.padEnd(4)}\` **${s.name}** - $${formatNumber(s.price)} (${change >= 0 ? '+' : ''}${pct}%)`;
+        return `${circle} \`${s.ticker.padEnd(4)}\` **${s.name}** - $${stockPrice(s.price)} (${change >= 0 ? '+' : ''}${pct}%)`;
     }).join('\n');
 
     return interaction.reply({

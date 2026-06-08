@@ -11,18 +11,15 @@ const clearcooldowns = require('./clearcooldowns');
 const stockfix      = require('./stockfix');
 const removestock   = require('./removestock');
 const setupmarket   = require('./setupmarket');
-const migrateeconomy = require('./migrateeconomy');
 const bounty        = require('./bounty');
 const dm            = require('./dm');
 const panel         = require('./panel');
 const season2       = require('./season2');
 
-const MIGRATE_EXTRA_USER_ID = '1267238412302159977';
-
 const SUBS = {
     give, setbalance, setbank, stats, userinfo, jackpot,
     reseteconomy, clearcooldowns, stockfix, removestock,
-    setupmarket, migrateeconomy, bounty, dm, panel, season2,
+    setupmarket, bounty, dm, panel, season2,
 };
 
 module.exports = {
@@ -50,7 +47,6 @@ module.exports = {
             .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true))
             .addStringOption(o => o.setName('ticker').setDescription('Stock ticker').setRequired(true)))
         .addSubcommand(sub => sub.setName('setupmarket').setDescription('Initialize or reset the stock market'))
-        .addSubcommand(sub => sub.setName('migrateeconomy').setDescription('Consolidate all economy data from every server into the global database'))
         .addSubcommand(sub => sub.setName('bounty').setDescription('Set a bounty on a user')
             .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true))
             .addNumberOption(o => o.setName('amount').setDescription('Bounty amount').setRequired(true)))
@@ -63,10 +59,8 @@ module.exports = {
     bountyMap: bounty.bountyMap,
 
     async execute(interaction) {
+        if (!isOwner(interaction)) return interaction.reply({ content: '❌ Owner only.', ephemeral: true });
         const sub = interaction.options.getSubcommand();
-        const allowed = isOwner(interaction)
-            || (sub === 'migrateeconomy' && interaction.user.id === MIGRATE_EXTRA_USER_ID);
-        if (!allowed) return interaction.reply({ content: '❌ Owner only.', ephemeral: true });
         return SUBS[sub].execute(interaction);
     }
 };

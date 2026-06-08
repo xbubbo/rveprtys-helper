@@ -147,7 +147,6 @@ router
         if (s === 'stockfix')       return run('owner', { getSubcommand: () => 'stockfix' });
         if (s === 'removestock')    return run('owner', { getSubcommand: () => 'removestock',   getUser: n => n === 'user' ? u() : null, getString: n => n === 'ticker' ? args[0]?.toUpperCase() : null });
         if (s === 'setupmarket')    return run('owner', { getSubcommand: () => 'setupmarket' });
-        if (s === 'migrateeconomy') return run('owner', { getSubcommand: () => 'migrateeconomy' });
         if (s === 'bounty')         return run('owner', { getSubcommand: () => 'bounty',        getUser: n => n === 'user' ? u() : null, getNumber: n => n === 'amount' ? num(args, 1) : null });
     })
     .on('ogive',                           null, (args, msg, run) => run('owner', { getSubcommand: () => 'give',          getUser: n => n === 'user' ? mention(msg) : null, getNumber: n => n === 'amount' ? num(args, 1) : null }))
@@ -161,7 +160,6 @@ router
     .on('ostockfix',                       null, (args, msg, run) => run('owner', { getSubcommand: () => 'stockfix' }))
     .on('oremovestock',                    null, (args, msg, run) => run('owner', { getSubcommand: () => 'removestock',   getUser: n => n === 'user' ? mention(msg) : null, getString: n => n === 'ticker' ? args[1]?.toUpperCase() : null }))
     .on('setupmarket',                     null, (args, msg, run) => run('owner', { getSubcommand: () => 'setupmarket' }))
-    .on(['omigrateeconomy', 'omigrate'],   null, (args, msg, run) => run('owner', { getSubcommand: () => 'migrateeconomy' }))
 
     // Search (fuzzy location matching)
     .on('search', null, (args, msg, run) => {

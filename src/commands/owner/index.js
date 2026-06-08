@@ -17,6 +17,8 @@ const dm            = require('./dm');
 const panel         = require('./panel');
 const season2       = require('./season2');
 
+const MIGRATE_EXTRA_USER_ID = '1267238412302159977';
+
 const SUBS = {
     give, setbalance, setbank, stats, userinfo, jackpot,
     reseteconomy, clearcooldowns, stockfix, removestock,
@@ -61,8 +63,10 @@ module.exports = {
     bountyMap: bounty.bountyMap,
 
     async execute(interaction) {
-        if (!isOwner(interaction)) return interaction.reply({ content: '❌ Owner only.', ephemeral: true });
         const sub = interaction.options.getSubcommand();
+        const allowed = isOwner(interaction)
+            || (sub === 'migrateeconomy' && interaction.user.id === MIGRATE_EXTRA_USER_ID);
+        if (!allowed) return interaction.reply({ content: '❌ Owner only.', ephemeral: true });
         return SUBS[sub].execute(interaction);
     }
 };

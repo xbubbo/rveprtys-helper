@@ -34,8 +34,8 @@ module.exports = {
         if (opponent.bot)                return interaction.reply({ content: "❌ You can't duel bots.", ephemeral: true });
         if (opponent.id === challenger.id) return interaction.reply({ content: "❌ You can't duel yourself.", ephemeral: true });
 
-        const challengerEcon = await getUser(challenger.id, interaction.guild.id);
-        const opponentEcon   = await getUser(opponent.id,   interaction.guild.id);
+        const challengerEcon = await getUser(challenger.id);
+        const opponentEcon   = await getUser(opponent.id);
 
         let betAmount = 0;
         if (betStr) {
@@ -89,8 +89,8 @@ module.exports = {
                 });
             }
 
-            const freshChallenger = await getUser(challenger.id, interaction.guild.id);
-            const freshOpponent   = await getUser(opponent.id,   interaction.guild.id);
+            const freshChallenger = await getUser(challenger.id);
+            const freshOpponent   = await getUser(opponent.id);
 
             if (hasBet) {
                 if (freshChallenger.balance < betAmount)

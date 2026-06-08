@@ -43,7 +43,7 @@ module.exports = {
         const game = interaction.options.getString('game');
         const bet  = interaction.options.getInteger('bet');
 
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
         if (!bet || bet <= 0 || user.balance < bet)
             return interaction.reply({ content: '❌ Invalid bet or insufficient balance.', ephemeral: true });
 
@@ -61,7 +61,7 @@ module.exports = {
             user.balance = parseFloat((user.balance + winnings).toFixed(2));
             trackWin(user, winnings, bet);
             await user.save();
-            await anticheat(interaction.client, interaction.user.id, interaction.guild.id);
+            await anticheat(interaction.client, interaction.user.id);
             return { winnings, text };
         };
 

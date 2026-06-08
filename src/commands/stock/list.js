@@ -3,7 +3,7 @@ const Stock = require('../../models/stock');
 const { stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
-    const stocks = await Stock.find({ guildId: interaction.guild.id }).sort({ ticker: 1 });
+    const stocks = await Stock.find({}).sort({ ticker: 1 });
     if (!stocks.length)
         return interaction.reply({ content: '❌ No stocks set up yet. An admin can run `/owner setupmarket` to initialize the market.', ephemeral: true });
 

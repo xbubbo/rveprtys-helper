@@ -3,7 +3,7 @@ const Stock = require('../../models/stock');
 const { formatNumber } = require('../../utils/format');
 
 async function execute(interaction) {
-    const stocks = await Stock.find({ guildId: interaction.guild.id });
+    const stocks = await Stock.find();
     if (!stocks.length) return interaction.reply({ content: '❌ No stocks found. Run `/owner setupmarket` first.', ephemeral: true });
 
     const results = [];

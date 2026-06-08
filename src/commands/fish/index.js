@@ -20,7 +20,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        const user   = await getUser(interaction.user.id, interaction.guild.id);
+        const user   = await getUser(interaction.user.id);
         const rod    = getRod(user);
         const bucket = getBucket(user);
 
@@ -45,7 +45,7 @@ module.exports = {
         }
 
         const loc       = tier.loc;
-        const sellTotal = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+        const sellTotal = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
 
         return interaction.reply({
             ...buildPanel(

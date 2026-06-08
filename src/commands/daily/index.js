@@ -13,7 +13,7 @@ module.exports = {
         .setDescription('Claim your daily reward'),
 
     async execute(interaction) {
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
         const now  = Date.now();
 
         if (user.lastDaily && now - user.lastDaily < COOLDOWN) {

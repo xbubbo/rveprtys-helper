@@ -14,8 +14,8 @@ function formatTimeLeft(ms) {
 async function buildSeasonEmbed(guild, endTime) {
     const msLeft        = endTime - new Date();
     const unixTimestamp = Math.floor(endTime.getTime() / 1000);
-    const cashWinners   = await User.find({ guildId: guild.id }).sort({ balance: -1 }).limit(5);
-    const bankWinners   = await User.find({ guildId: guild.id }).sort({ bank: -1 }).limit(5);
+    const cashWinners   = await User.find().sort({ balance: -1 }).limit(5);
+    const bankWinners   = await User.find().sort({ bank: -1 }).limit(5);
     const cashDesc = cashWinners.length ? cashWinners.map((u, i) => `**${i + 1}.** <@${u.userId}> - $${u.balance}`).join('\n') : 'No data.';
     const bankDesc = bankWinners.length ? bankWinners.map((u, i) => `**${i + 1}.** <@${u.userId}> - $${u.bank}`).join('\n') : 'No data.';
     return new EmbedBuilder()
@@ -40,8 +40,8 @@ async function execute(interaction) {
         const msLeft = endTime - new Date();
         if (msLeft <= 0) {
             clearInterval(interval);
-            const finalCash = await User.find({ guildId: interaction.guild.id }).sort({ balance: -1 }).limit(5);
-            const finalBank = await User.find({ guildId: interaction.guild.id }).sort({ bank: -1 }).limit(5);
+            const finalCash = await User.find().sort({ balance: -1 }).limit(5);
+            const finalBank = await User.find().sort({ bank: -1 }).limit(5);
             const cashDesc  = finalCash.length ? finalCash.map((u, i) => `**${i + 1}.** <@${u.userId}> - $${u.balance}`).join('\n') : 'No data.';
             const bankDesc  = finalBank.length ? finalBank.map((u, i) => `**${i + 1}.** <@${u.userId}> - $${u.bank}`).join('\n') : 'No data.';
             await interaction.editReply({ embeds: [new EmbedBuilder()

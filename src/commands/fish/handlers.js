@@ -25,7 +25,7 @@ function tierFromLoc(loc, rod) {
 
 async function handleCast(interaction) {
     await interaction.deferUpdate();
-    const user   = await getUser(interaction.user.id, interaction.guild.id);
+    const user   = await getUser(interaction.user.id);
     const rod    = getRod(user);
     const bucket = getBucket(user);
     if (!rod || !bucket) return;
@@ -40,14 +40,14 @@ async function handleCast(interaction) {
     const readyAt = (user.lastFishCast ?? 0) + COOLDOWN;
     if (now < readyAt) {
         const ts   = Math.floor(readyAt / 1000);
-        const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+        const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
         await msg.edit(buildPanel('Fishing', `Next cast: <t:${ts}:R>`, footer, mainButtons(sell, bucketCount(user), safeLoc)));
         return;
     }
 
     const cnt = bucketCount(user);
     if (cnt >= bucket.slots) {
-        const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+        const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
         await msg.edit(buildPanel('Fishing', `Your **${bucket.name}** is full. Sell before casting.`, footer, mainButtons(sell, cnt, safeLoc)));
         return;
     }
@@ -67,7 +67,7 @@ async function handleCast(interaction) {
     const nothing = !isBomb && roll < 0.07;
 
     if (nothing) {
-        const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+        const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
         const body = 'Nothing on the line.' + (rodBroke ? `\n\n*Your **${rod.name}** broke - buy a new one from \`/shop\`.*` : '');
         await msg.edit(buildPanel('Fishing', body, footer, mainButtons(sell, cnt, safeLoc)));
         return;
@@ -95,7 +95,7 @@ async function handleReel(interaction) {
     const [, tierLoc, itemOnLine, expiresStr, baitStr, castRodId] = interaction.customId.split(':');
     const expiresAt = parseInt(expiresStr);
 
-    const user       = await getUser(interaction.user.id, interaction.guild.id);
+    const user       = await getUser(interaction.user.id);
     const rod        = getRod(user);
     const bucket     = getBucket(user);
     if (!bucket) return;
@@ -112,7 +112,7 @@ async function handleReel(interaction) {
     const msg       = interaction.message;
 
     if (Date.now() > expiresAt) {
-        const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+        const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
         await msg.edit(buildPanel('Fishing', 'Too slow - it got away.', footer, mainButtons(sell, bucketCount(user), tierLoc)));
         return;
     }
@@ -131,14 +131,14 @@ async function handleReel(interaction) {
         }
         user.fishBucket = bucket_;
         await user.save();
-        const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+        const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
         const body = lost.length ? `Bomb.\n\nLost:\n${lost.join('\n')}` : 'Bomb. Your bucket was empty.';
         await msg.edit(buildPanel('Fishing', body, statusFooter(rod, tier, user, bucket), mainButtons(sell, bucketCount(user), tierLoc)));
         return;
     }
 
     if (Math.random() < (castRodStats?.snapChance ?? 0.08)) {
-        const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+        const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
         await msg.edit(buildPanel('Fishing', 'Line snapped.' + brokeNote, footer, mainButtons(sell, bucketCount(user), tierLoc)));
         return;
     }
@@ -166,12 +166,12 @@ async function handleReel(interaction) {
     const isMonster = caught.some(e => CATCH_ITEMS[e.item]?.type === 'monster');
     const lines     = await Promise.all(caught.map(async e => {
         const c     = CATCH_ITEMS[e.item];
-        const price = await getCatchValue(interaction.guild.id, e);
+        const price = await getCatchValue(e);
         return `${c.emoji} **${c.name}** (${displayWeight(e.weight)})  ·  $${formatNumber(price)}`;
     }));
 
     const newCount  = bucketCount(user);
-    const sellTotal = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+    const sellTotal = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
     const full      = newCount >= bucket.slots;
     const title     = isMonster ? 'Fishing  -  Monster Catch' : catchCount > 1 ? `Fishing  -  ${catchCount}x Catch` : 'Fishing';
     const body      = lines.join('\n') + `\n\n${newCount}/${bucket.slots} in bucket` + (full ? '\nBucket full. Sell before casting again.' : '') + brokeNote;
@@ -183,20 +183,20 @@ async function handleCut(interaction) {
     await interaction.deferUpdate();
     const parts  = interaction.customId.split(':');
     const loc    = parts[1] ?? 'pond';
-    const user   = await getUser(interaction.user.id, interaction.guild.id);
+    const user   = await getUser(interaction.user.id);
     const rod    = getRod(user);
     const bucket = getBucket(user);
     if (!rod || !bucket) return;
 
     const tier = TIERS.find(t => t.loc === loc) ?? getTier(rod.id);
-    const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+    const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
     await interaction.message.edit(buildPanel('Fishing', 'Line cut.', statusFooter(rod, tier, user, bucket), mainButtons(sell, bucketCount(user), loc)));
 }
 
 async function handleSell(interaction) {
     await interaction.deferUpdate();
     const loc    = interaction.customId.split(':')[1] ?? 'pond';
-    const user   = await getUser(interaction.user.id, interaction.guild.id);
+    const user   = await getUser(interaction.user.id);
     const bucket = getBucket(user);
     const items  = normalizeBucketEntries(user.fishBucket);
     if (!items.length || !bucket) return;
@@ -210,16 +210,16 @@ async function handleSell(interaction) {
             .sort((a, b) => (CATCH_ITEMS[b.item]?.value ?? 0) - (CATCH_ITEMS[a.item]?.value ?? 0))
             .map(async e => {
                 const c     = CATCH_ITEMS[e.item];
-                const price = await getCatchValue(interaction.guild.id, e);
+                const price = await getCatchValue(e);
                 return `${c?.emoji ?? ''} ${c?.name ?? e.item} (${displayWeight(e.weight)})  $${formatNumber(price)}`;
             })
     );
 
     let raw = 0;
-    for (const e of items) raw += await getCatchValue(interaction.guild.id, e);
+    for (const e of items) raw += await getCatchValue(e);
     const total = Math.floor(raw * mult);
 
-    await recordSales(interaction.guild.id, items);
+    await recordSales(items);
     user.fishBucket = [];
     user.balance    = parseFloat((user.balance + total).toFixed(2));
     await user.save();
@@ -240,19 +240,19 @@ async function handleSell(interaction) {
 async function handleBucket(interaction) {
     await interaction.deferUpdate();
     const loc    = interaction.customId.split(':')[1] ?? 'pond';
-    const user   = await getUser(interaction.user.id, interaction.guild.id);
+    const user   = await getUser(interaction.user.id);
     const bucket = getBucket(user);
     const msg    = interaction.message;
 
     const items = normalizeBucketEntries(user.fishBucket).sort((a, b) => (CATCH_ITEMS[b.item]?.value ?? 0) - (CATCH_ITEMS[a.item]?.value ?? 0));
     const lines = await Promise.all(items.map(async e => {
         const c     = CATCH_ITEMS[e.item];
-        const price = await getCatchValue(interaction.guild.id, e);
+        const price = await getCatchValue(e);
         return `${c?.emoji ?? ''} **${c?.name ?? e.item}** (${displayWeight(e.weight)})  ·  $${formatNumber(price)}`;
     }));
 
     const count = bucketCount(user);
-    const sell  = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket?.sellMultiplier ?? 1);
+    const sell  = await calcSellTotal(user.fishBucket, bucket?.sellMultiplier ?? 1);
 
     await msg.edit(buildPanel(
         'Bucket',
@@ -271,13 +271,13 @@ async function handleBucket(interaction) {
 async function handleBack(interaction) {
     await interaction.deferUpdate();
     const loc    = interaction.customId.split(':')[1] ?? 'pond';
-    const user   = await getUser(interaction.user.id, interaction.guild.id);
+    const user   = await getUser(interaction.user.id);
     const rod    = getRod(user);
     const bucket = getBucket(user);
     if (!rod || !bucket) return;
 
     const tier = TIERS.find(t => t.loc === loc) ?? getTier(rod.id);
-    const sell = await calcSellTotal(interaction.guild.id, user.fishBucket, bucket.sellMultiplier ?? 1);
+    const sell = await calcSellTotal(user.fishBucket, bucket.sellMultiplier ?? 1);
 
     await interaction.message.edit(buildPanel(
         'Fishing',

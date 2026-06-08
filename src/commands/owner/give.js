@@ -7,7 +7,7 @@ async function execute(interaction) {
     if (!Number.isSafeInteger(amount) || amount <= 0)
         return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });
 
-    const user   = await getUser(target.id, interaction.guild.id);
+    const user   = await getUser(target.id);
     user.balance = parseFloat((user.balance + amount).toFixed(2));
     await user.save();
     return interaction.reply({ content: `✅ Gave **$${formatNumber(amount)}** to <@${target.id}>`, ephemeral: true });

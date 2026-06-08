@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { isAdmin } = require('../../utils/auth');
+const { isOwner } = require('../../utils/auth');
 const give          = require('./give');
 const setbalance    = require('./setbalance');
 const setbank       = require('./setbank');
@@ -11,15 +11,18 @@ const clearcooldowns = require('./clearcooldowns');
 const stockfix      = require('./stockfix');
 const removestock   = require('./removestock');
 const setupmarket   = require('./setupmarket');
+const migrateeconomy = require('./migrateeconomy');
 const bounty        = require('./bounty');
 const dm            = require('./dm');
 const panel         = require('./panel');
 const season2       = require('./season2');
 
+const MIGRATE_EXTRA_USER_ID = '1267238412302159977';
+
 const SUBS = {
     give, setbalance, setbank, stats, userinfo, jackpot,
     reseteconomy, clearcooldowns, stockfix, removestock,
-    setupmarket, bounty, dm, panel, season2,
+    setupmarket, migrateeconomy, bounty, dm, panel, season2,
 };
 
 module.exports = {
@@ -35,18 +38,19 @@ module.exports = {
         .addSubcommand(sub => sub.setName('setbank').setDescription("Set a user's bank balance")
             .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true))
             .addNumberOption(o => o.setName('amount').setDescription('New bank balance').setRequired(true)))
-        .addSubcommand(sub => sub.setName('stats').setDescription('View economy stats for this server'))
+        .addSubcommand(sub => sub.setName('stats').setDescription('View global economy stats'))
         .addSubcommand(sub => sub.setName('userinfo').setDescription("View a user's economy data")
             .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true)))
         .addSubcommand(sub => sub.setName('jackpot').setDescription('Drop money to a random user')
             .addNumberOption(o => o.setName('amount').setDescription('Amount to drop').setRequired(true)))
-        .addSubcommand(sub => sub.setName('reseteconomy').setDescription('Reset all balances in this server'))
+        .addSubcommand(sub => sub.setName('reseteconomy').setDescription('Reset all balances globally'))
         .addSubcommand(sub => sub.setName('clearcooldowns').setDescription('Clear all active cooldowns'))
         .addSubcommand(sub => sub.setName('stockfix').setDescription('Manually trigger a stock market price tick'))
         .addSubcommand(sub => sub.setName('removestock').setDescription("Remove a stock from a user's portfolio")
             .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true))
             .addStringOption(o => o.setName('ticker').setDescription('Stock ticker').setRequired(true)))
         .addSubcommand(sub => sub.setName('setupmarket').setDescription('Initialize or reset the stock market'))
+        .addSubcommand(sub => sub.setName('migrateeconomy').setDescription('Consolidate all economy data from every server into the global database'))
         .addSubcommand(sub => sub.setName('bounty').setDescription('Set a bounty on a user')
             .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true))
             .addNumberOption(o => o.setName('amount').setDescription('Bounty amount').setRequired(true)))
@@ -59,8 +63,10 @@ module.exports = {
     bountyMap: bounty.bountyMap,
 
     async execute(interaction) {
-        if (!isAdmin(interaction)) return interaction.reply({ content: '❌ Owner/admin only.', ephemeral: true });
         const sub = interaction.options.getSubcommand();
+        const allowed = isOwner(interaction)
+            || (sub === 'migrateeconomy' && interaction.user.id === MIGRATE_EXTRA_USER_ID);
+        if (!allowed) return interaction.reply({ content: '❌ Owner only.', ephemeral: true });
         return SUBS[sub].execute(interaction);
     }
 };

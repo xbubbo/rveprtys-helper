@@ -6,8 +6,8 @@ module.exports = {
     async execute(guild) {
         console.log(`Joined new guild: ${guild.name} (${guild.id})`);
         try {
-            await seedMarket(guild.id);
-            console.log(`Seeded stocks for ${guild.name}`);
+            await seedMarket();
+            console.log(`Verified global market is seeded (joined via ${guild.name})`);
         } catch (e) {
             console.error(`Failed to seed stocks for ${guild.name}:`, e);
         }

@@ -3,7 +3,7 @@ const Slave = require('../../models/slave');
 const { formatNumber } = require('../../utils/format');
 
 async function execute(interaction) {
-    const slave = await Slave.findOne({ userId: interaction.user.id, guildId: interaction.guild.id });
+    const slave = await Slave.findOne({ userId: interaction.user.id });
     if (!slave?.ownerId) return interaction.reply({ content: '✅ You are a free person.', ephemeral: true });
 
     return interaction.reply({ embeds: [new EmbedBuilder()

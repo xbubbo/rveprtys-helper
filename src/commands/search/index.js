@@ -74,7 +74,7 @@ module.exports = {
         }
         cooldowns.search.set(cdKey, now);
 
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
 
         if (Math.random() < loc.deathChance) {
             const result = await applyDeathPenalty(user);

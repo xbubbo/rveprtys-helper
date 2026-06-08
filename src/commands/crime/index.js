@@ -59,7 +59,7 @@ module.exports = {
         cooldowns.crime.set(interaction.user.id, now);
 
         const c    = pick(CRIMES);
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
 
         if (Math.random() < c.deathChance) {
             const result = await applyDeathPenalty(user);

@@ -4,7 +4,7 @@ const { formatNumber } = require('../../utils/format');
 
 async function execute(interaction) {
     const type    = interaction.options.getString('type') ?? 'hourly';
-    const lottery = await getOrCreate(interaction.guild.id, type);
+    const lottery = await getOrCreate(type);
     const drawTs  = Math.floor(lottery.drawAt.getTime() / 1000);
     const total   = lottery.tickets.reduce((a, t) => a + t.count, 0);
     const label   = type === 'hourly' ? 'Hourly' : 'Daily';

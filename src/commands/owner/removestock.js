@@ -3,7 +3,7 @@ const Portfolio = require('../../models/portfolio');
 async function execute(interaction) {
     const target    = interaction.options.getUser('user');
     const ticker    = interaction.options.getString('ticker').toUpperCase();
-    const portfolio = await Portfolio.findOne({ userId: target.id, guildId: interaction.guild.id });
+    const portfolio = await Portfolio.findOne({ userId: target.id });
     if (!portfolio) return interaction.reply({ content: '❌ User has no portfolio.', ephemeral: true });
 
     const before = portfolio.holdings.length;

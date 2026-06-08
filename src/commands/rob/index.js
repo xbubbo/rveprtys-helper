@@ -39,8 +39,8 @@ module.exports = {
         }
         cooldowns.rob.set(interaction.user.id, now);
 
-        const user   = await getUser(interaction.user.id, interaction.guild.id);
-        const victim = await getUser(target.id, interaction.guild.id);
+        const user   = await getUser(interaction.user.id);
+        const victim = await getUser(target.id);
 
         if (victim.balance < 50)
             return interaction.reply({ content: '❌ Target is too poor to rob.', ephemeral: true });
@@ -57,7 +57,7 @@ module.exports = {
             user.balance   = parseFloat((user.balance   + amount).toFixed(2));
             await user.save();
             await victim.save();
-            await anticheat(interaction.client, interaction.user.id, interaction.guild.id);
+            await anticheat(interaction.client, interaction.user.id);
             return interaction.reply({
                 embeds: [new EmbedBuilder()
                     .setTitle('🥷 Rob Successful')

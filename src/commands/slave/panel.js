@@ -4,12 +4,12 @@ const Slave = require('../../models/slave');
 const { formatNumber } = require('../../utils/format');
 
 async function execute(interaction) {
-    const slaves = await Slave.find({ ownerId: interaction.user.id, guildId: interaction.guild.id });
+    const slaves = await Slave.find({ ownerId: interaction.user.id });
     if (!slaves.length) return interaction.reply({ content: "❌ You don't own anyone.", ephemeral: true });
 
     for (let i = 0; i < slaves.length; i++) {
         const slave     = slaves[i];
-        const slaveEcon = await getUser(slave.userId, interaction.guild.id);
+        const slaveEcon = await getUser(slave.userId);
         const embed = new EmbedBuilder()
             .setTitle(`Slave: <@${slave.userId}>`)
             .addFields(

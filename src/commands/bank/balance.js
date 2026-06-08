@@ -6,7 +6,7 @@ const PRESTIGE_BADGES = ['', '★', '★★', '★★★', '✦', '✦✦', '✦
 
 async function execute(interaction, user) {
     const target     = interaction.options.getUser('user') ?? interaction.user;
-    const targetUser = target.id === interaction.user.id ? user : await getUser(target.id, interaction.guild.id);
+    const targetUser = target.id === interaction.user.id ? user : await getUser(target.id);
 
     const embed = new EmbedBuilder()
         .setTitle(`💰 ${target.username}'s Balance`)

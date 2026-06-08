@@ -4,7 +4,7 @@ const { stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
     const ticker = interaction.options.getString('ticker').toUpperCase();
-    const stock  = await Stock.findOne({ guildId: interaction.guild.id, ticker });
+    const stock  = await Stock.findOne({ ticker });
     if (!stock) return interaction.reply({ content: `❌ Ticker \`${ticker}\` not found.`, ephemeral: true });
 
     const history = stock.history.slice(-10);

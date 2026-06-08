@@ -64,9 +64,9 @@ function normalizeBucketEntries(fishBucket) {
     return entries;
 }
 
-async function getNpcPrice(guildId, fishType, baseValue) {
+async function getNpcPrice(fishType, baseValue) {
     try {
-        const market = await FishMarket.findOne({ guildId, fishType });
+        const market = await FishMarket.findOne({ fishType });
         if (!market) return baseValue;
         if (Date.now() - market.lastReset > 24 * 60 * 60 * 1000) {
             market.soldLast24h = 0; market.lastReset = new Date(); await market.save();
@@ -76,15 +76,15 @@ async function getNpcPrice(guildId, fishType, baseValue) {
     } catch { return baseValue; }
 }
 
-async function calcSellTotal(guildId, fishBucket, mult) {
+async function calcSellTotal(fishBucket, mult) {
     let total = 0;
     for (const e of normalizeBucketEntries(fishBucket)) {
-        total += await getCatchValue(guildId, e);
+        total += await getCatchValue(e);
     }
     return Math.floor(total * mult);
 }
 
-async function recordSales(guildId, items) {
+async function recordSales(items) {
     const counts = new Map();
     for (const e of normalizeBucketEntries(items)) {
         if (!CATCH_ITEMS[e.item] || e.item.startsWith('junk_')) continue;
@@ -92,16 +92,16 @@ async function recordSales(guildId, items) {
     }
     for (const [item, quantity] of counts) {
         await FishMarket.findOneAndUpdate(
-            { guildId, fishType: item },
+            { fishType: item },
             { $inc: { soldLast24h: quantity }, $setOnInsert: { lastReset: new Date() } },
             { upsert: true }
         );
     }
 }
 
-async function getCatchValue(guildId, entry) {
+async function getCatchValue(entry) {
     const item = CATCH_ITEMS[entry.item];
-    const basePrice = await getNpcPrice(guildId, entry.item, item?.value ?? 0);
+    const basePrice = await getNpcPrice(entry.item, item?.value ?? 0);
     const avgWeight = WEIGHT_STATS[entry.item]?.avg ?? entry.weight ?? 1;
     const weight = Number(entry.weight ?? avgWeight);
     const weightMultiplier = clamp(weight / avgWeight, 0.75, 1.5);

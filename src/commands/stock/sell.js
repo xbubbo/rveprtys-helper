@@ -8,10 +8,10 @@ async function execute(interaction) {
     const ticker    = interaction.options.getString('ticker').toUpperCase();
     const sharesStr = interaction.options.getString('shares');
 
-    const stock = await Stock.findOne({ guildId: interaction.guild.id, ticker });
+    const stock = await Stock.findOne({ ticker });
     if (!stock) return interaction.reply({ content: `❌ Ticker \`${ticker}\` not found.`, ephemeral: true });
 
-    const portfolio = await Portfolio.findOne({ userId: interaction.user.id, guildId: interaction.guild.id });
+    const portfolio = await Portfolio.findOne({ userId: interaction.user.id });
     const holding   = portfolio?.holdings.find(h => h.ticker === ticker);
     if (!holding || holding.shares <= 0)
         return interaction.reply({ content: `❌ You don't hold any shares of \`${ticker}\`.`, ephemeral: true });
@@ -35,7 +35,7 @@ async function execute(interaction) {
     if (holding.shares === 0) portfolio.holdings = portfolio.holdings.filter(h => h.ticker !== ticker);
     await portfolio.save();
 
-    const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guild.id });
+    const user = await User.findOne({ userId: interaction.user.id });
     user.balance = parseFloat((user.balance + totalEarned).toFixed(2));
     await user.save();
 

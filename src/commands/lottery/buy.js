@@ -9,14 +9,14 @@ async function execute(interaction) {
     const price = TICKET_PRICES[type];
     const total = price * count;
 
-    const user = await getUser(interaction.user.id, interaction.guild.id);
+    const user = await getUser(interaction.user.id);
     if (user.balance < total)
         return interaction.reply({ content: `❌ You need **$${formatNumber(total)}** for ${count} ticket${count > 1 ? 's' : ''} but only have **$${formatNumber(user.balance)}**.`, ephemeral: true });
 
     user.balance = parseFloat((user.balance - total).toFixed(2));
     await user.save();
 
-    const lottery = await getOrCreate(interaction.guild.id, type);
+    const lottery = await getOrCreate(type);
     lottery.pot   = parseFloat((lottery.pot + total).toFixed(2));
     const existing = lottery.tickets.find(t => t.userId === interaction.user.id);
     if (existing) existing.count += count;

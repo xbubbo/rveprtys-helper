@@ -18,13 +18,11 @@ const COMPANIES = [
     { ticker: 'ZRTH', name: 'Zeroth Systems',        price: 112.00 },
 ];
 
-async function seedMarket(guildId) {
+async function seedMarket() {
     for (const c of COMPANIES) {
-        await Stock.findOneAndUpdate(
-            { guildId, ticker: c.ticker },
-            { guildId, ...c, history: [c.price], totalShares: 0 },
-            { upsert: true, new: true }
-        );
+        const exists = await Stock.findOne({ ticker: c.ticker });
+        if (exists) continue;
+        await Stock.create({ ...c, history: [c.price], totalShares: 0 });
     }
 }
 

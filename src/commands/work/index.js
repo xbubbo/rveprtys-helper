@@ -52,7 +52,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub          = interaction.options.getSubcommand();
-        const user         = await getUser(interaction.user.id, interaction.guild.id);
+        const user         = await getUser(interaction.user.id);
         const prestige     = user.prestige          || 0;
         const prestigeMult = user.prestigeMultiplier || 1;
         const jobMult      = user.jobMultiplier      || 1;
@@ -72,12 +72,12 @@ module.exports = {
             const amount       = Math.floor((Math.floor(Math.random() * 76) + 25) * totalMult);
             user.lastWork      = now;
 
-            const slave = await Slave.findOne({ userId: interaction.user.id, guildId: interaction.guild.id });
+            const slave = await Slave.findOne({ userId: interaction.user.id });
 
             if (slave?.ownerId) {
                 slave.debt        = parseFloat((slave.debt - amount).toFixed(2));
                 slave.totalEarned = parseFloat((slave.totalEarned + amount).toFixed(2));
-                const owner       = await getUser(slave.ownerId, interaction.guild.id);
+                const owner       = await getUser(slave.ownerId);
                 owner.balance     = parseFloat((owner.balance + amount).toFixed(2));
                 await owner.save();
 
@@ -96,7 +96,7 @@ module.exports = {
 
             user.balance = parseFloat((user.balance + amount).toFixed(2));
             await user.save();
-            await anticheat(interaction.client, interaction.user.id, interaction.guild.id);
+            await anticheat(interaction.client, interaction.user.id);
 
             const footerParts = [];
             if (corporateJob) footerParts.push(`${corporateJob.title} x${jobMult}`);

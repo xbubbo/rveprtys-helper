@@ -7,7 +7,7 @@ async function execute(interaction) {
     if (!Number.isSafeInteger(amount) || amount < 0)
         return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });
 
-    const user   = await getUser(target.id, interaction.guild.id);
+    const user   = await getUser(target.id);
     user.bank = amount;
     await user.save();
     return interaction.reply({ content: `✅ Set <@${target.id}>'s bank to **$${formatNumber(amount)}**`, ephemeral: true });

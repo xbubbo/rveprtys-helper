@@ -35,7 +35,7 @@ module.exports = {
         }
         cooldowns.beg.set(interaction.user.id, now);
 
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
 
         let roll    = Math.random();
         let outcome = OUTCOMES[OUTCOMES.length - 1];

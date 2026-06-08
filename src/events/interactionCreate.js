@@ -20,7 +20,6 @@ module.exports = {
         }
 
         if (interaction.isButton()) {
-            const guildId = interaction.guild.id;
 
             if (interaction.customId.startsWith('shop_buy:'))              return handleShopBuy(interaction);
             if (interaction.customId.startsWith('shop_sell:'))             return handleShopSell(interaction);
@@ -33,7 +32,7 @@ module.exports = {
 
             if (interaction.customId.startsWith('slave_free_')) {
                 const targetId = interaction.customId.split('_')[2];
-                const slave    = await Slave.findOne({ userId: targetId, guildId });
+                const slave    = await Slave.findOne({ userId: targetId });
                 if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
                 slave.ownerId = null; slave.debt = 0; slave.totalEarned = 0;
                 await slave.save();
@@ -43,10 +42,10 @@ module.exports = {
 
             if (interaction.customId.startsWith('slave_renew_')) {
                 const targetId  = interaction.customId.split('_')[2];
-                const slave     = await Slave.findOne({ userId: targetId, guildId });
+                const slave     = await Slave.findOne({ userId: targetId });
                 if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
                 const renewCost = parseFloat((slave.debt / 2).toFixed(2));
-                const owner     = await getUser(interaction.user.id, guildId);
+                const owner     = await getUser(interaction.user.id);
                 if (owner.balance < renewCost) return interaction.reply({ content: `❌ You need **$${formatNumber(renewCost)}** to renew.`, ephemeral: true });
                 owner.balance = parseFloat((owner.balance - renewCost).toFixed(2));
                 await owner.save();
@@ -59,9 +58,9 @@ module.exports = {
 
             if (interaction.customId.startsWith('slave_check_')) {
                 const targetId = interaction.customId.split('_')[2];
-                const slave    = await Slave.findOne({ userId: targetId, guildId });
+                const slave    = await Slave.findOne({ userId: targetId });
                 if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
-                const slaveEcon = await getUser(targetId, guildId);
+                const slaveEcon = await getUser(targetId);
                 await interaction.reply({ ephemeral: true, embeds: [new EmbedBuilder()
                     .setTitle(`📊 Stats for <@${targetId}>`)
                     .addFields(
@@ -74,7 +73,7 @@ module.exports = {
 
             if (interaction.customId.startsWith('slave_takepay_')) {
                 const targetId = interaction.customId.split('_')[2];
-                const slave    = await Slave.findOne({ userId: targetId, guildId });
+                const slave    = await Slave.findOne({ userId: targetId });
                 if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
                 const modal = new ModalBuilder().setCustomId(`takepay_modal_${targetId}`).setTitle('Take Payment from Slave');
                 modal.addComponents(new ActionRowBuilder().addComponents(
@@ -104,15 +103,13 @@ module.exports = {
         }
 
         if (interaction.isModalSubmit()) {
-            const guildId = interaction.guild.id;
-
             if (interaction.customId.startsWith('takepay_modal_')) {
                 const targetId = interaction.customId.split('_')[2];
                 const amount   = parseFloat(interaction.fields.getTextInputValue('takepay_amount'));
                 if (!amount || isNaN(amount) || amount <= 0) return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });
-                const slave = await Slave.findOne({ userId: targetId, guildId });
+                const slave = await Slave.findOne({ userId: targetId });
                 if (!slave || slave.ownerId !== interaction.user.id) return interaction.reply({ content: '❌ Not your slave.', ephemeral: true });
-                const slaveUser = await getUser(targetId, guildId);
+                const slaveUser = await getUser(targetId);
                 if (slaveUser.balance < amount) return interaction.reply({ content: `❌ <@${targetId}> only has **$${formatNumber(slaveUser.balance)}**.`, ephemeral: true });
                 const taken = parseFloat(Math.min(amount, slave.debt).toFixed(2));
                 slaveUser.balance = parseFloat((slaveUser.balance - taken).toFixed(2));

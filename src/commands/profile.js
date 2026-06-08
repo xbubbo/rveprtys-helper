@@ -40,8 +40,7 @@ module.exports = {
 
     async execute(interaction) {
         const target = interaction.options.getUser('user') ?? interaction.user;
-        const guildId = interaction.guild.id;
-        const user = await getUser(target.id, guildId);
+        const user = await getUser(target.id);
 
         const netWorth = user.balance + user.bank;
         const prestige = user.prestige || 0;
@@ -49,27 +48,27 @@ module.exports = {
         const jobTitle = getJobTitle(user.jobId);
         const totalMult = parseFloat(((user.prestigeMultiplier || 1) * (user.jobMultiplier || 1)).toFixed(2));
 
-        const allUsers = await User.find({ guildId }).sort({ balance: -1 });
+        const allUsers = await User.find({}).sort({ balance: -1 });
         const rankByWallet = allUsers.findIndex(u => u.userId === target.id) + 1;
         const sortedByNet = [...allUsers].sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank));
         const rankByNet = sortedByNet.findIndex(u => u.userId === target.id) + 1;
 
         let portfolioValue = 0;
-        const portfolio = await Portfolio.findOne({ userId: target.id, guildId });
+        const portfolio = await Portfolio.findOne({ userId: target.id });
         if (portfolio?.holdings?.length) {
             for (const h of portfolio.holdings) {
-                const stock = await Stock.findOne({ guildId, ticker: h.ticker });
+                const stock = await Stock.findOne({ ticker: h.ticker });
                 if (stock) portfolioValue += stock.price * h.shares;
             }
         }
         portfolioValue = parseFloat(portfolioValue.toFixed(2));
 
-        const slave = await Slave.findOne({ userId: target.id, guildId });
+        const slave = await Slave.findOne({ userId: target.id });
         const slaveStatus = slave?.ownerId
             ? `Enslaved by <@${slave.ownerId}>`
             : 'Free';
 
-        const ownedSlaves = await Slave.countDocuments({ ownerId: target.id, guildId });
+        const ownedSlaves = await Slave.countDocuments({ ownerId: target.id });
 
         const discordUser = await interaction.client.users.fetch(target.id);
         const memberJoined = interaction.guild.members.cache.get(target.id)?.joinedAt;

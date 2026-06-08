@@ -19,8 +19,8 @@ module.exports = {
         if (target.id === interaction.user.id) return interaction.reply({ content: '❌ You cannot give money to yourself.', ephemeral: true });
         if (target.bot)                        return interaction.reply({ content: '❌ You cannot give money to a bot.', ephemeral: true });
 
-        const user     = await getUser(interaction.user.id, interaction.guild.id);
-        const receiver = await getUser(target.id, interaction.guild.id);
+        const user     = await getUser(interaction.user.id);
+        const receiver = await getUser(target.id);
 
         const amount = parseAmount(interaction.options.getString('amount'), user.balance);
         if (isNaN(amount) || amount <= 0) return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });

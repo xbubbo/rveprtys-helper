@@ -102,7 +102,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub  = interaction.options.getSubcommand();
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
         return SUBS[sub].execute(interaction, user);
     }
 };

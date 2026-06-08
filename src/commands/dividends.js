@@ -3,15 +3,7 @@ const { getUser } = require('../utils/economy');
 const { formatNumber } = require('../utils/format');
 const Portfolio = require('../models/portfolio');
 const Stock = require('../models/stock');
-const mongoose = require('mongoose');
-
-const dividendClaimSchema = new mongoose.Schema({
-    userId: { type: String, required: true },
-    guildId: { type: String, required: true },
-    lastClaim: { type: Number, default: 0 },
-});
-
-const DividendClaim = mongoose.models.DividendClaim || mongoose.model('DividendClaim', dividendClaimSchema);
+const DividendClaim = require('../models/dividendClaim');
 
 const DIVIDEND_COOLDOWN = 24 * 60 * 60 * 1000;
 const DIVIDEND_RATE = 0.02;
@@ -37,12 +29,11 @@ module.exports = {
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
 
         if (sub === 'rates') {
-            const stocks = await Stock.find({ guildId }).sort({ price: -1 });
+            const stocks = await Stock.find({}).sort({ price: -1 });
             if (!stocks.length)
-                return interaction.reply({ content: 'No stocks are listed in this server.', ephemeral: true });
+                return interaction.reply({ content: 'No stocks are listed yet.', ephemeral: true });
 
             const lines = stocks.map(s => {
                 const dailyPer = parseFloat((s.price * DIVIDEND_RATE).toFixed(2));
@@ -63,7 +54,7 @@ module.exports = {
             });
         }
 
-        const portfolio = await Portfolio.findOne({ userId, guildId });
+        const portfolio = await Portfolio.findOne({ userId });
         if (!portfolio || !portfolio.holdings?.length)
             return interaction.reply({ content: 'You have no stock holdings. Buy shares to earn dividends.', ephemeral: true });
 
@@ -71,7 +62,7 @@ module.exports = {
         if (!eligibleHoldings.length)
             return interaction.reply({ content: `You need at least **${MIN_SHARES} shares** of any stock to earn dividends.`, ephemeral: true });
 
-        const stocks = await Stock.find({ guildId });
+        const stocks = await Stock.find({});
         const stockMap = new Map(stocks.map(s => [s.ticker, s]));
 
         let totalPayout = 0;
@@ -88,7 +79,7 @@ module.exports = {
         totalPayout = parseFloat(totalPayout.toFixed(2));
 
         if (sub === 'preview') {
-            const claim = await DividendClaim.findOne({ userId, guildId });
+            const claim = await DividendClaim.findOne({ userId });
             const now = Date.now();
             let readyIn = null;
 
@@ -115,7 +106,7 @@ module.exports = {
 
         if (sub === 'collect') {
             const now = Date.now();
-            let claim = await DividendClaim.findOne({ userId, guildId });
+            let claim = await DividendClaim.findOne({ userId });
 
             if (claim && now - claim.lastClaim < DIVIDEND_COOLDOWN) {
                 const left = DIVIDEND_COOLDOWN - (now - claim.lastClaim);
@@ -125,12 +116,12 @@ module.exports = {
                 return interaction.reply({ content: `Dividends already collected. Next payout in **${h}h ${m}m ${s}s**.`, ephemeral: true });
             }
 
-            const user = await getUser(userId, guildId);
+            const user = await getUser(userId);
             user.balance = parseFloat((user.balance + totalPayout).toFixed(2));
             await user.save();
 
             if (!claim) {
-                claim = new DividendClaim({ userId, guildId });
+                claim = new DividendClaim({ userId });
             }
             claim.lastClaim = now;
             await claim.save();

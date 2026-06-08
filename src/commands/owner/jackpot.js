@@ -4,7 +4,7 @@ const { formatNumber } = require('../../utils/format');
 
 async function execute(interaction) {
     const amount = interaction.options.getNumber('amount');
-    const users  = await User.find({ guildId: interaction.guild.id });
+    const users  = await User.find();
     if (!users.length) return interaction.reply({ content: 'No users found.', ephemeral: true });
     const winner = users[Math.floor(Math.random() * users.length)];
     winner.balance = parseFloat((winner.balance + amount).toFixed(2));

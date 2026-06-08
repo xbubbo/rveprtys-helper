@@ -12,7 +12,7 @@ module.exports = {
         .setDescription('Start a livestream - requires Keyboard & Mouse from the shop'),
 
     async execute(interaction) {
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
         if (!hasItem(user, 'keyboard_mouse'))
             return interaction.reply({ content: 'You need a **Keyboard & Mouse** to stream. Buy one from `/shop`.', ephemeral: true });
 

@@ -18,7 +18,7 @@ module.exports = {
         .setDescription('Reset everything and ascend to the next prestige level for a permanent earn multiplier'),
 
     async execute(interaction) {
-        const user        = await getUser(interaction.user.id, interaction.guild.id);
+        const user        = await getUser(interaction.user.id);
         const totalWealth = user.balance + user.bank;
 
         if (user.prestige >= MAX_PRESTIGE) {
@@ -78,9 +78,9 @@ module.exports = {
         user.dailyStreak       = 0;
         await user.save();
 
-        await Portfolio.findOneAndUpdate({ userId: interaction.user.id, guildId: interaction.guild.id }, { holdings: [] });
-        await Slave.updateMany({ userId: interaction.user.id, guildId: interaction.guild.id }, { ownerId: null, debt: 0, totalEarned: 0 });
-        await Slave.updateMany({ ownerId: interaction.user.id, guildId: interaction.guild.id }, { ownerId: null, debt: 0, totalEarned: 0 });
+        await Portfolio.findOneAndUpdate({ userId: interaction.user.id }, { holdings: [] });
+        await Slave.updateMany({ userId: interaction.user.id }, { ownerId: null, debt: 0, totalEarned: 0 });
+        await Slave.updateMany({ ownerId: interaction.user.id }, { ownerId: null, debt: 0, totalEarned: 0 });
 
         return interaction.followUp({ embeds: [new EmbedBuilder()
             .setTitle(`${badge} Prestige ${nextPrestige} Achieved!`)

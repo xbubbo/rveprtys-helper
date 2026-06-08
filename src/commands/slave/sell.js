@@ -10,7 +10,7 @@ async function execute(interaction) {
     if (!startingBid || startingBid <= 0)
         return interaction.reply({ content: '❌ Starting bid must be greater than 0.', ephemeral: true });
 
-    const slave = await Slave.findOne({ userId: target.id, guildId: interaction.guild.id });
+    const slave = await Slave.findOne({ userId: target.id });
     if (!slave || slave.ownerId !== interaction.user.id)
         return interaction.reply({ content: `❌ You don't own <@${target.id}>.`, ephemeral: true });
 
@@ -48,11 +48,11 @@ async function execute(interaction) {
             return;
         }
 
-        const winner = await getUser(current.currentBidderId, interaction.guild.id);
+        const winner = await getUser(current.currentBidderId);
         winner.balance = parseFloat((winner.balance - current.currentBid).toFixed(2));
         await winner.save();
 
-        const seller = await getUser(current.sellerId, interaction.guild.id);
+        const seller = await getUser(current.sellerId);
         seller.balance = parseFloat((seller.balance + current.currentBid).toFixed(2));
         await seller.save();
 

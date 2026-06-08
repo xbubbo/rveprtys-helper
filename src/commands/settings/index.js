@@ -35,7 +35,7 @@ module.exports = {
 
     async execute(interaction) {
         let user = await User.findOne({ userId: interaction.user.id });
-        if (!user) user = new User({ userId: interaction.user.id, guildId: interaction.guild.id });
+        if (!user) user = new User({ userId: interaction.user.id });
 
         const msg = await interaction.reply({
             embeds: [settingsEmbed(user)],

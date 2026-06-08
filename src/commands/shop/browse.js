@@ -268,7 +268,7 @@ async function handleShopSelect(interaction) {
     const mode = modeRaw === 'sell' ? 'sell' : 'buy';
     const pageId = interaction.values?.[0];
     if (!PAGES[pageId]) return;
-    const user = await getUser(interaction.user.id, interaction.guild.id);
+    const user = await getUser(interaction.user.id);
     await interaction.message.edit(buildPage(pageId, user, mode));
 }
 
@@ -277,7 +277,7 @@ async function handleShopMode(interaction) {
     const [, pageIdRaw] = interaction.customId.split(':');
     const pageId = PAGES[pageIdRaw] ? pageIdRaw : null;
     const mode = interaction.values?.[0] === 'sell' ? 'sell' : 'buy';
-    const user = await getUser(interaction.user.id, interaction.guild.id);
+    const user = await getUser(interaction.user.id);
     await interaction.message.edit(buildPage(pageId, user, mode));
 }
 
@@ -287,7 +287,7 @@ async function handleShopBuy(interaction) {
     if (!item) return interaction.reply({ content: '❌ Invalid item.', ephemeral: true });
 
     await interaction.deferUpdate();
-    const user = await getUser(interaction.user.id, interaction.guild.id);
+    const user = await getUser(interaction.user.id);
 
     if (item.requires && !hasItem(user, item.requires)) {
         await interaction.followUp({ content: `❌ You need a **${ITEMS[item.requires]?.name ?? item.requires}** first.`, ephemeral: true });
@@ -322,7 +322,7 @@ async function handleShopSell(interaction) {
     const item = ITEMS[key];
 
     await interaction.deferUpdate();
-    const user = await getUser(interaction.user.id, interaction.guild.id);
+    const user = await getUser(interaction.user.id);
 
     if (!item || !hasItem(user, key)) {
         await interaction.followUp({ content: `❌ You don't own a **${item?.name ?? key}**.`, ephemeral: true });

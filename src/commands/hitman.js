@@ -59,7 +59,7 @@ module.exports = {
             }
         }
 
-        const hirer = await getUser(interaction.user.id, interaction.guild.id);
+        const hirer = await getUser(interaction.user.id);
         if (hirer.balance < tier.cost)
             return interaction.reply({ content: `You need **$${formatNumber(tier.cost)}** to hire a ${tier.name}. You have **$${formatNumber(hirer.balance)}**.`, ephemeral: true });
 
@@ -82,7 +82,7 @@ module.exports = {
 
         await new Promise(r => setTimeout(r, 3500));
 
-        const victim = await getUser(target.id, interaction.guild.id);
+        const victim = await getUser(target.id);
         const success = Math.random() < tier.successRate;
 
         if (success) {
@@ -119,7 +119,7 @@ module.exports = {
 
         } else {
             const blowbackAmount = parseFloat((hirer.balance * 0.05).toFixed(2));
-            const hirerFresh = await getUser(interaction.user.id, interaction.guild.id);
+            const hirerFresh = await getUser(interaction.user.id);
             hirerFresh.balance = Math.max(0, parseFloat((hirerFresh.balance - blowbackAmount).toFixed(2)));
             await hirerFresh.save();
 

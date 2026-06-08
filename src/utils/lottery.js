@@ -1,5 +1,5 @@
 const Lottery = require('../models/lottery');
-const { getUser } = require('./economy');
+const { getUser, GLOBAL_GUILD_ID } = require('./economy');
 
 const TICKET_PRICES = { hourly: 200, daily: 1000 };
 const BASE_REWARDS = { hourly: 1000, daily: 5000 };
@@ -19,11 +19,11 @@ function getNextDraw(type) {
     return next;
 }
 
-async function getOrCreate(guildId, type) {
-    let lottery = await Lottery.findOne({ guildId, type });
+async function getOrCreate(type) {
+    let lottery = await Lottery.findOne({ type });
     if (!lottery) {
         lottery = await Lottery.create({
-            guildId, type,
+            type,
             pot: BASE_REWARDS[type],
             tickets: [],
             drawAt: getNextDraw(type),
@@ -33,7 +33,7 @@ async function getOrCreate(guildId, type) {
 }
 
 async function drawLottery(client, lottery) {
-    const guild = await client.guilds.fetch(lottery.guildId).catch(() => null);
+    const guild = await client.guilds.fetch(GLOBAL_GUILD_ID).catch(() => null);
     if (!guild) {
         lottery.tickets = [];
         lottery.pot = BASE_REWARDS[lottery.type];
@@ -57,7 +57,7 @@ async function drawLottery(client, lottery) {
 
     if (lottery.tickets.length < 2) {
         for (const t of lottery.tickets) {
-            const u = await getUser(t.userId, lottery.guildId);
+            const u = await getUser(t.userId);
             const refund = parseFloat((t.count * TICKET_PRICES[lottery.type]).toFixed(2));
             u.balance = parseFloat((u.balance + refund).toFixed(2));
             await u.save();
@@ -85,7 +85,7 @@ async function drawLottery(client, lottery) {
         if (rand < 0) { winnerId = t.userId; break; }
     }
 
-    const winner = await getUser(winnerId, lottery.guildId);
+    const winner = await getUser(winnerId);
     const prize = parseFloat(lottery.pot.toFixed(2));
     winner.balance = parseFloat((winner.balance + prize).toFixed(2));
     await winner.save();

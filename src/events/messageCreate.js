@@ -38,22 +38,35 @@ module.exports = {
             }
         }
 
-        const adapt = (opts = {}) => ({
-            user:    message.author,
-            guild:   message.guild,
-            member:  message.member,
-            channel: message.channel,
-            client,
-            options: {
-                getUser:       n => opts.getUser?.(n)       ?? null,
-                getInteger:    n => opts.getInteger?.(n)    ?? null,
-                getString:     n => opts.getString?.(n)     ?? null,
-                getNumber:     n => opts.getNumber?.(n)     ?? null,
-                getSubcommand: () => opts.getSubcommand?.() ?? null,
-            },
-            reply:    d => message.reply(d),
-            followUp: d => message.channel.send(d),
-        });
+        const adapt = (opts = {}) => {
+            let deferredMessage = null;
+
+            return {
+                user:    message.author,
+                guild:   message.guild,
+                member:  message.member,
+                channel: message.channel,
+                client,
+                options: {
+                    getUser:       n => opts.getUser?.(n)       ?? null,
+                    getInteger:    n => opts.getInteger?.(n)    ?? null,
+                    getString:     n => opts.getString?.(n)     ?? null,
+                    getNumber:     n => opts.getNumber?.(n)     ?? null,
+                    getSubcommand: () => opts.getSubcommand?.() ?? null,
+                },
+                reply:    d => message.reply(d),
+                followUp: d => message.channel.send(d),
+                deferReply: async () => {
+                    deferredMessage = await message.reply({ content: '⏳ Working...' });
+                    return deferredMessage;
+                },
+                editReply: async d => {
+                    if (deferredMessage) return deferredMessage.edit(d);
+                    deferredMessage = await message.reply(d);
+                    return deferredMessage;
+                },
+            };
+        };
 
         const run = (name, opts) => client.commands.get(name).execute(adapt(opts));
 

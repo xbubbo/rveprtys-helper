@@ -176,7 +176,7 @@ module.exports = {
             const roleId = config?.eventRoleId;
 
             if (event.instant) {
-                const stocks = await Stock.find({ guildId });
+                const stocks = await Stock.find({});
                 for (const stock of stocks) {
                     const isSurge = eventId === 'stock_surge';
                     const pct = isSurge

@@ -4,7 +4,7 @@ const Portfolio = require('../../models/portfolio');
 const { formatNumber, stockPrice } = require('../../utils/format');
 
 async function execute(interaction) {
-    const portfolio = await Portfolio.findOne({ userId: interaction.user.id, guildId: interaction.guild.id });
+    const portfolio = await Portfolio.findOne({ userId: interaction.user.id });
     if (!portfolio?.holdings.length)
         return interaction.reply({ content: '📭 You have no stocks. Use `/stock buy` to get started.', ephemeral: true });
 
@@ -12,7 +12,7 @@ async function execute(interaction) {
     const rows = [];
 
     for (const h of portfolio.holdings) {
-        const stock = await Stock.findOne({ guildId: interaction.guild.id, ticker: h.ticker });
+        const stock = await Stock.findOne({ ticker: h.ticker });
         if (!stock) continue;
         const currentValue = stock.price * h.shares;
         const costBasis    = h.avgBuyPrice * h.shares;

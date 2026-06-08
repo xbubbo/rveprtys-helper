@@ -25,7 +25,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        const user = await getUser(interaction.user.id, interaction.guild.id);
+        const user = await getUser(interaction.user.id);
         if (!hasAnyItem(user, PICKAXES))
             return interaction.reply({ content: 'You need a pickaxe to go mining. Buy one from `/shop`.', ephemeral: true });
 

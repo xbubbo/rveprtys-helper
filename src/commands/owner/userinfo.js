@@ -4,7 +4,7 @@ const { formatNumber } = require('../../utils/format');
 
 async function execute(interaction) {
     const target = interaction.options.getUser('user');
-    const user   = await getUser(target.id, interaction.guild.id);
+    const user   = await getUser(target.id);
     return interaction.reply({ embeds: [new EmbedBuilder()
         .setTitle('👤 User Info')
         .addFields(

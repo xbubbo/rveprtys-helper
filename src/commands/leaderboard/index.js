@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const User = require('../../models/user');
 const { buildPage } = require('./pages');
 
-async function fetchUsers(guildId, mode) {
+async function fetchUsers(mode) {
     if (mode === 'global' || mode === 'global-bank') {
         const users = await User.find();
         if (mode === 'global') users.sort((a, b) => (b.balance + b.bank) - (a.balance + a.bank));
@@ -10,7 +10,7 @@ async function fetchUsers(guildId, mode) {
         return users;
     }
 
-    const users = await User.find({ guildId });
+    const users = await User.find();
 
     if (mode === 'bank')     return users.filter(u => u.bank > 0).sort((a, b) => b.bank - a.bank);
     if (mode === 'wallet')   return users.filter(u => u.balance > 0).sort((a, b) => b.balance - a.balance);
@@ -39,7 +39,7 @@ module.exports = {
 
     async execute(interaction) {
         const mode  = interaction.options.getString('location') ?? 'both';
-        const users = await fetchUsers(interaction.guild.id, mode);
+        const users = await fetchUsers(mode);
 
         if (!users.length) return interaction.reply({ content: 'No data yet.', ephemeral: true });
 

@@ -9,9 +9,9 @@ async function execute(interaction) {
     if (target.id === interaction.user.id) return interaction.reply({ content: "❌ You can't buy yourself.", ephemeral: true });
     if (target.bot)                         return interaction.reply({ content: "❌ You can't buy a bot.", ephemeral: true });
 
-    const buyer         = await getUser(interaction.user.id, interaction.guild.id);
-    const targetEcon    = await getUser(target.id, interaction.guild.id);
-    const existingSlave = await Slave.findOne({ userId: target.id, guildId: interaction.guild.id });
+    const buyer         = await getUser(interaction.user.id);
+    const targetEcon    = await getUser(target.id);
+    const existingSlave = await Slave.findOne({ userId: target.id });
     if (existingSlave?.ownerId)
         return interaction.reply({ content: `❌ <@${target.id}> is already owned by <@${existingSlave.ownerId}>.`, ephemeral: true });
 
@@ -42,12 +42,12 @@ async function execute(interaction) {
         if (!current) return;
         activeAuctions.delete(auctionKey);
 
-        const freshBuyer = await getUser(current.currentBidderId, interaction.guild.id);
+        const freshBuyer = await getUser(current.currentBidderId);
         freshBuyer.balance = parseFloat((freshBuyer.balance - current.currentBid).toFixed(2));
         await freshBuyer.save();
 
-        let slave = await Slave.findOne({ userId: target.id, guildId: interaction.guild.id });
-        if (!slave) slave = new Slave({ userId: target.id, guildId: interaction.guild.id });
+        let slave = await Slave.findOne({ userId: target.id });
+        if (!slave) slave = new Slave({ userId: target.id });
         slave.ownerId     = current.currentBidderId;
         slave.debt        = parseFloat((current.currentBid * 2).toFixed(2));
         slave.totalEarned = 0;

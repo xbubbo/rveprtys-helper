@@ -1,20 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getUser } = require('../utils/economy');
 const { formatNumber, parseAmount } = require('../utils/format');
-const mongoose = require('mongoose');
-
-const willSchema = new mongoose.Schema({
-    userId: { type: String, required: true },
-    guildId: { type: String, required: true },
-    beneficiaryId: { type: String, required: true },
-    amount: { type: Number, required: true },
-    note: { type: String, default: '' },
-    createdAt: { type: Number, default: Date.now },
-    inactivityDays: { type: Number, default: 30 },
-    executed: { type: Boolean, default: false },
-});
-
-const Will = mongoose.models.Will || mongoose.model('Will', willSchema);
+const Will = require('../models/will');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -50,7 +37,6 @@ module.exports = {
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
 
         if (sub === 'set') {
             const beneficiary = interaction.options.getUser('beneficiary');
@@ -63,7 +49,7 @@ module.exports = {
             if (beneficiary.bot)
                 return interaction.reply({ content: 'Bots cannot be named as beneficiaries.', ephemeral: true });
 
-            const user = await getUser(userId, guildId);
+            const user = await getUser(userId);
             const amount = parseAmount(amountStr, user.balance + user.bank);
 
             if (isNaN(amount) || amount <= 0)
@@ -72,8 +58,8 @@ module.exports = {
                 return interaction.reply({ content: `You only have **$${formatNumber(user.balance + user.bank)}** total wealth. You cannot leave more than you own.`, ephemeral: true });
 
             await Will.findOneAndUpdate(
-                { userId, guildId },
-                { userId, guildId, beneficiaryId: beneficiary.id, amount, note, inactivityDays: days, executed: false, createdAt: Date.now() },
+                { userId },
+                { userId, beneficiaryId: beneficiary.id, amount, note, inactivityDays: days, executed: false, createdAt: Date.now() },
                 { upsert: true, new: true }
             );
 
@@ -93,7 +79,7 @@ module.exports = {
         }
 
         if (sub === 'view') {
-            const will = await Will.findOne({ userId, guildId, executed: false });
+            const will = await Will.findOne({ userId, executed: false });
             if (!will)
                 return interaction.reply({ content: 'You have no active will. Use `/will set` to create one.', ephemeral: true });
 
@@ -114,7 +100,7 @@ module.exports = {
         }
 
         if (sub === 'revoke') {
-            const result = await Will.findOneAndDelete({ userId, guildId, executed: false });
+            const result = await Will.findOneAndDelete({ userId, executed: false });
             if (!result)
                 return interaction.reply({ content: 'You have no active will to revoke.', ephemeral: true });
 
@@ -127,7 +113,7 @@ module.exports = {
         }
 
         if (sub === 'incoming') {
-            const wills = await Will.find({ beneficiaryId: userId, guildId, executed: false });
+            const wills = await Will.find({ beneficiaryId: userId, executed: false });
             if (!wills.length)
                 return interaction.reply({ content: 'No one has named you as a beneficiary.', ephemeral: true });
 

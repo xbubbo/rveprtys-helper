@@ -10,7 +10,7 @@ async function execute(interaction) {
     const guildAuctions = [...activeAuctions.entries()].filter(([k]) => k.startsWith(interaction.guild.id));
     if (!guildAuctions.length) return interaction.reply({ content: '❌ No active auctions in this server.', ephemeral: true });
 
-    const bidder = await getUser(interaction.user.id, interaction.guild.id);
+    const bidder = await getUser(interaction.user.id);
 
     for (const [auctionKey, auction] of guildAuctions) {
         if (auction.type === 'buy') {
